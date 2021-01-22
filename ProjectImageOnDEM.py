@@ -198,7 +198,7 @@ def main():
 # Input Finse
 #
 camera_file = './/FinseDemoData//CamFinseInit.inp'
-point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered.inp'
+point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered2.inp'
 data = resection_lsq.CollinearityData(camera_file, point_file)
 x0 = np.zeros(6)
 # initilaize guesses for eop as read from file
@@ -215,9 +215,9 @@ res = resection_lsq.minimize(resection_lsq.coll_func, x0, jac=False, method='BFG
 R=RotMatrixFromAngles(res.x[0]%360,res.x[1]%360,res.x[2]%360)
 C=[res.x[3],res.x[4],res.x[5]]
 Foc=1484
-dem_file='E://WebcamFinse//time_lapse_finse_DSM_mid.tif'
-image_file='E://WebcamFinse//2019-05-24_12-00.jpg'
-output='E://WebcamFinse//output_full.ply'
+dem_file='.//FinseDemoData//time_lapse_finse_DSM_mid.tif'
+image_file='.//FinseDemoData//2019-05-24_12-00.jpg'
+output='.//FinseDemoData//output.ply'
 #R=RotMatrixFromAngles(296.5900742877957,752.9132532359986,-0.23151933194086316)
 #C=[419171.2825386935,6718423.0604178095,1212.1851466249436]
 aCam=[C,R,Foc]
