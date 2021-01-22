@@ -197,8 +197,8 @@ def main():
 
 # Input Finse
 #
-camera_file = 'E://WebcamFinse//CamFinseInit.inp'
-point_file = 'E://WebcamFinse//GCPs_WebcamFinse_Centered.inp'
+camera_file = './/FinseDemoData//CamFinseInit.inp'
+point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered.inp'
 data = resection_lsq.CollinearityData(camera_file, point_file)
 x0 = np.zeros(6)
 # initilaize guesses for eop as read from file
@@ -212,7 +212,7 @@ x0[5] = eop['ZL']
 eps = np.array([4.8e-06, 4.8e-06, 4.8e-06, 1.0e-01, 1.0e-01, 1.0e-01]) # numerical differentiation step size
 res = resection_lsq.minimize(resection_lsq.coll_func, x0, jac=False, method='BFGS', options={'eps': eps, 'disp': True})
 
-R=RotMatrixFromAngles(res.x[0],res.x[1],res.x[2])
+R=RotMatrixFromAngles(res.x[0]%360,res.x[1]%360,res.x[2]%360)
 C=[res.x[3],res.x[4],res.x[5]]
 Foc=1484
 dem_file='E://WebcamFinse//time_lapse_finse_DSM_mid.tif'
@@ -231,9 +231,9 @@ R=RotMatrixFromAngles(0.08313040808087234,-0.07991804434454106,0.098550575212140
 C=[208.23581197916084,90.42526833269204,107.85550148056846]
 Foc=2011.887
 aCam=[C,R,Foc]
-dem_file='E://WebcamFinse//Cucza//DEM.tif'
-image_file='E://WebcamFinse//Cucza//Abbey-IMG_0209.jpg'
-output='E://WebcamFinse//Cucza//output.ply'
+dem_file='.//CuczaDemoData//DEM.tif'
+image_file='.//CuczaDemoData//Abbey-IMG_0209.jpg'
+output='.//CuczaDemoData//output.ply'
 # R=[[0.993534882295323163,0.0929006109947966841,0.0652526944977123435],[0.0878277479180877285,-0.993176223631756505,0.0767285833845516713],[0.0719355569802246908,-0.0705015268583363691,-0.994914473888378059]]
 # aCam=[[209.89527614679403023,91.20530793577831,107.031846453497209],R,2011.8874387887106]
 # ProjectImage2DEM(dem_file, image_file, output, aCam)
