@@ -11,7 +11,7 @@ from optparse import OptionParser
 from matplotlib import pyplot
 import plyfile
 import time
-import resection_lsq 
+import resection_leastsq_Dfun as resec
 
 
 def RotMatrixFromAngles(O,P,K):
@@ -40,6 +40,7 @@ def XYZ2Im(aPtWorld,aCam,aImSize):
     '''
     # World to camera coordinate
     aPtCam=np.linalg.inv(aCam[1]).dot(aPtWorld-aCam[0])
+    #print(aPtCam)
     # Test if point is behind camera (Z positive in Cam coordinates)
     if aPtCam[2]<0:
         return None
@@ -121,8 +122,9 @@ def ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=-9999):
         if not (aProjectedPoint is None):
             aDist=aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])][3]
             if np.isnan(aDist) or (not np.isnan(aDistArray[i]) and aDist>aDistArray[i]):
-                 aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])]=[aDEM_as_list[i][0],aDEM_as_list[i][1],aDEM_as_list[i][2],aDistArray[i]]
-                # print(aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])])
+                #print(int(aProjectedPoint[0]),int(aProjectedPoint[1]))
+                aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])]=[aDEM_as_list[i][0],aDEM_as_list[i][1],aDEM_as_list[i][2],aDistArray[i]]
+                #print(aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])])
             #else:
             #    print('Nope ', aDist, aDistArray[i])  
     toc = time.perf_counter()
@@ -198,8 +200,16 @@ def main():
 # Input Finse
 #
 camera_file = './/FinseDemoData//CamFinseInit.inp'
-point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered2.inp'
-data = resection_lsq.CollinearityData(camera_file, point_file)
+point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered.inp'
+Foc=1484
+dem_file='.//FinseDemoData//time_lapse_finse_DSM_mid.tif'
+image_file='.//FinseDemoData//2019-05-24_12-00.jpg'
+output='.//FinseDemoData//output.ply'
+
+
+data = resec.CollinearityData(camera_file, point_file)
+
+# Perform spatial resection
 x0 = np.zeros(6)
 # initilaize guesses for eop as read from file
 eop = data.eop
@@ -209,17 +219,12 @@ x0[2] = eop['kappa']
 x0[3] = eop['XL']
 x0[4] = eop['YL']
 x0[5] = eop['ZL']
-eps = np.array([4.8e-06, 4.8e-06, 4.8e-06, 1.0e-01, 1.0e-01, 1.0e-01]) # numerical differentiation step size
-res = resection_lsq.minimize(resection_lsq.coll_func, x0, jac=False, method='BFGS', options={'eps': eps, 'disp': True})
 
-R=RotMatrixFromAngles(res.x[0]%360,res.x[1]%360,res.x[2]%360)
-C=[res.x[3],res.x[4],res.x[5]]
-Foc=1484
-dem_file='.//FinseDemoData//time_lapse_finse_DSM_mid.tif'
-image_file='.//FinseDemoData//2019-05-24_12-00.jpg'
-output='.//FinseDemoData//output.ply'
-#R=RotMatrixFromAngles(296.5900742877957,752.9132532359986,-0.23151933194086316)
-#C=[419171.2825386935,6718423.0604178095,1212.1851466249436]
+x, cov_x, info, msg, ier = resec.leastsq(resec.coll_func, x0, Dfun=resec.coll_Dfunc, full_output=True)
+
+R=RotMatrixFromAngles(x[0]%360,x[1]%360,x[2]%360)
+C=[x[3],x[4],x[5]]
+
 aCam=[C,R,Foc]
 ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=1137.75)
 
@@ -227,16 +232,35 @@ ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=1137.75)
 
 
 #Input Cucza
-R=RotMatrixFromAngles(0.08313040808087234,-0.07991804434454106,0.09855057521214053)
-C=[208.23581197916084,90.42526833269204,107.85550148056846]
+camera_file = './/CuczaDemoData//CamCucza.inp'
+point_file = './/CuczaDemoData//GCPs_Centered.inp'
 Foc=2011.887
-aCam=[C,R,Foc]
 dem_file='.//CuczaDemoData//DEM.tif'
 image_file='.//CuczaDemoData//Abbey-IMG_0209.jpg'
 output='.//CuczaDemoData//output.ply'
+
+data = resec.CollinearityData(camera_file, point_file)
+
+# Perform spatial resection
+x0 = np.zeros(6)
+# initilaize guesses for eop as read from file
+eop = data.eop
+x0[0] = eop['omega']
+x0[1] = eop['phi']
+x0[2] = eop['kappa']
+x0[3] = eop['XL']
+x0[4] = eop['YL']
+x0[5] = eop['ZL']
+
+x, cov_x, info, msg, ier = resec.leastsq(resec.coll_func, x0, Dfun=resec.coll_Dfunc, full_output=True)
+
+R=RotMatrixFromAngles(x[0],x[1],x[2])
+C=[x[3],x[4],x[5]]
+aCam=[C,R,Foc]
+
 # R=[[0.993534882295323163,0.0929006109947966841,0.0652526944977123435],[0.0878277479180877285,-0.993176223631756505,0.0767285833845516713],[0.0719355569802246908,-0.0705015268583363691,-0.994914473888378059]]
 # aCam=[[209.89527614679403023,91.20530793577831,107.031846453497209],R,2011.8874387887106]
-# ProjectImage2DEM(dem_file, image_file, output, aCam)
+ProjectImage2DEM(dem_file, image_file, output, aCam)
 
 
 

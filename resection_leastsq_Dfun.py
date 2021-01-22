@@ -10,7 +10,7 @@
 
 import sys
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import leastsq
 
 
 def collinearity_eqn_residual(iop,eop,x,y,X,Y,Z):
@@ -55,6 +55,78 @@ def collinearity_eqn_residual(iop,eop,x,y,X,Y,Z):
     resy = y - y0 + focallength * uvw[1,0] / uvw[2,0]
 
     return resx, resy
+
+def collinearity_eqn_residual_Jacobian(iop,eop,x,y,X,Y,Z):
+    """
+    Usage:
+        collinearity_eqn_residual_Jacobian(iop,eop,x,y,X,Y,Z)
+
+    Inputs:
+        iop = dict of interior orientation parameters: x0, y0, f
+        eop = dict of exterior orientation parameters: omega, phi, kappa, XL, YL, ZL
+        x = array of x photo coordinates of control points
+        y = array of y photo coordinates of control points
+        X = array of X world coordinates of control points
+        Y = array of Y world coordinates of control points
+        Z = array of Z world coordinates of control points
+
+    Returns:
+        the Jacobian of the collinearity equations
+        a (2, 6) matrix of partial derivatives of x and y wrt om, ph, kp
+    """
+    from math import sin, cos
+    #x0 = iop['x0']
+    #y0 = iop['y0']
+    focallength = iop['f']
+
+    om = eop['omega']
+    ph = eop['phi']
+    kp = eop['kappa']
+
+    XL = eop['XL']
+    YL = eop['YL']
+    ZL = eop['ZL']
+
+    # Appendix C, Mikhail et al.
+
+    Mom = np.matrix([[1, 0, 0], [0, cos(om), sin(om)], [0, -sin(om), cos(om)]])
+    Mph = np.matrix([[cos(ph), 0, -sin(ph)], [0, 1, 0], [sin(ph), 0, cos(ph)]])
+    Mkp = np.matrix([[cos(kp), sin(kp), 0], [-sin(kp), cos(kp), 0], [0, 0, 1]])
+
+    M = Mkp * Mph * Mom
+
+    UVW = M * np.matrix([[X-XL], [Y-YL], [Z-ZL]])
+    
+    U = UVW[0,0]
+    V = UVW[1,0]
+    W = UVW[2,0]
+
+    jacobian = np.zeros((2,6))
+
+    dUVW_dom = M * np.matrix([[0.0], [Z-ZL], [YL-Y]])
+    dUVW_dph = np.matrix([[0, 0, -cos(kp)], [0, 0, sin(kp)], [cos(kp), -sin(kp), 0]]) * UVW
+    dUVW_dkp = np.matrix([[V], [-U], [0.0]])
+
+    dUVW_dXL = M * np.matrix([[-1.0],  [0.0],  [0.0]])
+    dUVW_dYL = M * np.matrix([[ 0.0], [-1.0],  [0.0]])
+    dUVW_dZL = M * np.matrix([[ 0.0], [ 0.0], [-1.0]])
+    
+    f_W = focallength / W
+    
+    jacobian[0,0] = f_W *(dUVW_dom[0,0]-U/W*dUVW_dom[2,0])
+    jacobian[0,1] = f_W *(dUVW_dph[0,0]-U/W*dUVW_dph[2,0])
+    jacobian[0,2] = f_W *(dUVW_dkp[0,0]-U/W*dUVW_dkp[2,0])
+    jacobian[0,3] = f_W *(dUVW_dXL[0,0]-U/W*dUVW_dXL[2,0])
+    jacobian[0,4] = f_W *(dUVW_dYL[0,0]-U/W*dUVW_dYL[2,0])
+    jacobian[0,5] = f_W *(dUVW_dZL[0,0]-U/W*dUVW_dZL[2,0])
+    jacobian[1,0] = f_W *(dUVW_dom[1,0]-V/W*dUVW_dom[2,0])
+    jacobian[1,1] = f_W *(dUVW_dph[1,0]-V/W*dUVW_dph[2,0])
+    jacobian[1,2] = f_W *(dUVW_dkp[1,0]-V/W*dUVW_dkp[2,0])
+    jacobian[1,3] = f_W *(dUVW_dXL[1,0]-V/W*dUVW_dXL[2,0])
+    jacobian[1,4] = f_W *(dUVW_dYL[1,0]-V/W*dUVW_dYL[2,0])
+    jacobian[1,5] = f_W *(dUVW_dZL[1,0]-V/W*dUVW_dZL[2,0])
+    
+    return jacobian
 
 
 class CollinearityData:
@@ -150,27 +222,61 @@ def coll_func(indep_vars):
     eop['YL'] = indep_vars[4]
     eop['ZL'] = indep_vars[5]
 
-    i = 0
-    F = 0.0
-    for l in label:
-
-        F1, F2 = collinearity_eqn_residual(iop,eop,x[i],y[i],X[i],Y[i],Z[i])
-        F += F1**2 + F2**2
-        i += 1
+    F = np.zeros(2*len(label))
+    for i,_ in enumerate(label):
+        F[2*i], F[2*i+1] = collinearity_eqn_residual(iop,eop,x[i],y[i],X[i],Y[i],Z[i])
 
     return F
+
+
+def coll_Dfunc(indep_vars):
+    """
+    The Jacobian of the collinearity function calculates rate of change of the 
+        residuals of the collinearity equations wrt the indep_vars (eop)
+    This function is passed to scipy.optimize.minimize()
+
+    Inputs:
+        indep_vars (passed) are the exterior orientation parameters of the camera
+        data (global) camera interior calibration data, photo points, control points
+
+    Returns:
+        Jacobian (first derivative) matrix
+    """
+    global data
+    iop = data.iop
+    #eop = data.eop
+    label = data.label
+    x = data.x
+    y = data.y
+    X = data.X
+    Y = data.Y
+    Z = data.Z
+
+    eop = {}
+    eop['omega'] = indep_vars[0]
+    eop['phi'] = indep_vars[1]
+    eop['kappa'] = indep_vars[2]
+    eop['XL'] = indep_vars[3]
+    eop['YL'] = indep_vars[4]
+    eop['ZL'] = indep_vars[5]
+
+    dF = np.zeros((2*len(label), len(indep_vars)))
+    for i,_ in enumerate(label):
+        dF[2*i:2*i+2,0:] = collinearity_eqn_residual_Jacobian(iop,eop,x[i],y[i],X[i],Y[i],Z[i])
+
+    return dF
+
 
 
 if len(sys.argv) > 1:
     camera_file = sys.argv[1]
 else:
-    #camera_file = 'E://WebcamFinse//Cucza//CamCucza.inp'
-    camera_file = 'E://WebcamFinse//CamFinseInit.inp'
+    camera_file = 'E://WebcamFinse//Cucza//CamCucza.inp'
 if len(sys.argv) > 2:
     point_file = sys.argv[2]
 else:
-    #point_file = 'E://WebcamFinse//Cucza//GCPs_Centered.inp'
-    point_file = 'E://WebcamFinse//GCPs_WebcamFinse_Centered.inp'
+    point_file = 'E://WebcamFinse//Cucza//GCPs_Centered.inp'
+
 data = CollinearityData(camera_file, point_file)
 
 x0 = np.zeros(6)
@@ -183,15 +289,15 @@ x0[3] = eop['XL']
 x0[4] = eop['YL']
 x0[5] = eop['ZL']
 
-eps = np.array([4.8e-06, 4.8e-06, 4.8e-06, 1.0e-01, 1.0e-01, 1.0e-01]) # numerical differentiation step size
-res = minimize(coll_func, x0, jac=False, method='BFGS', options={'eps': eps, 'disp': True})
-#res = minimize(coll_func, x0, options={'disp': True})
+#x, cov_x, info, msg, ier = leastsq(coll_func, x0, full_output=True)
+x, cov_x, info, msg, ier = leastsq(coll_func, x0, Dfun=coll_Dfunc, full_output=True)
 
-#print res.x
-print('Solution:')
-print('omega, ', res.x[0])
-print('phi, ', res.x[1])
-print('kappa, ', res.x[2])
-print('XL, ', res.x[3])
-print('YL, ', res.x[4])
-print('ZL, ', res.x[5])
+print(f'Solution:')
+print(f'omega, {x[0]}')
+print(f'phi, {x[1]}')
+print(f'kappa, {x[2]}')
+print(f'XL, {x[3]}')
+print(f'YL, {x[4]}')
+print(f'ZL, {x[5]}')
+print(f"number of function evaluations: {info['nfev']}")
+print(f"sum squared residuals: {np.sum(info['fvec']**2)}")
