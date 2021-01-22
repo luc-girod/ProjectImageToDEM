@@ -1,0 +1,6 @@
+WebcamInfo
+Name : HIKVISION HIB22F
+Datasheet : https://manualzz.com/doc/23133764/data-sheet
+Sensor : 1/2.8" : 5.175*3.89mm
+Resolution : 1920 × 1080
+Focal = 4mm = 4*1920/5.175=1484pix
