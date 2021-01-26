@@ -12,7 +12,7 @@ from matplotlib import pyplot
 import plyfile
 import time
 import resection_leastsq_Dfun as resec
-
+from scipy.optimize import leastsq
 
 def RotMatrixFromAngles(O,P,K):
     
@@ -120,7 +120,11 @@ def ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=-9999):
     for i in range(aDEM_as_list.shape[0]):
         aProjectedPoint=XYZ2Im(aDEM_as_list[i],aCam,anImage.shape)
         if not (aProjectedPoint is None):
+            # Get distance from image already registered for that pixel
             aDist=aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])][3]
+            # if the registered distance is nan (nothing has been registered before)
+            # or if the distance for a new candidate is smaller than the registered distance
+            # then replace the registered XYZ point (and associated distance) with the new point
             if np.isnan(aDist) or (not np.isnan(aDistArray[i]) and aDist>aDistArray[i]):
                 #print(int(aProjectedPoint[0]),int(aProjectedPoint[1]))
                 aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])]=[aDEM_as_list[i][0],aDEM_as_list[i][1],aDEM_as_list[i][2],aDistArray[i]]
@@ -200,14 +204,14 @@ def main():
 # Input Finse
 #
 camera_file = './/FinseDemoData//CamFinseInit.inp'
-point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered.inp'
+point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered2.inp'
 Foc=1484
 dem_file='.//FinseDemoData//time_lapse_finse_DSM_mid.tif'
 image_file='.//FinseDemoData//2019-05-24_12-00.jpg'
 output='.//FinseDemoData//output.ply'
 
 
-data = resec.CollinearityData(camera_file, point_file)
+data = CollinearityData(camera_file, point_file)
 
 # Perform spatial resection
 x0 = np.zeros(6)
@@ -220,11 +224,12 @@ x0[3] = eop['XL']
 x0[4] = eop['YL']
 x0[5] = eop['ZL']
 
-x, cov_x, info, msg, ier = resec.leastsq(resec.coll_func, x0, Dfun=resec.coll_Dfunc, full_output=True)
+x, cov_x, info, msg, ier = leastsq(coll_func, x0, Dfun=coll_Dfunc, full_output=True)
 
-R=RotMatrixFromAngles(x[0]%360,x[1]%360,x[2]%360)
-C=[x[3],x[4],x[5]]
-
+R=RotMatrixFromAngles(x[0],x[1],x[2])
+C=[x[3]+410000,x[4]+6710000,x[5]]
+C=[419169.86,6718421.39,1215]
+R=RotMatrixFromAngles(np.pi/2,0,0)
 aCam=[C,R,Foc]
 ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=1137.75)
 
@@ -239,7 +244,7 @@ dem_file='.//CuczaDemoData//DEM.tif'
 image_file='.//CuczaDemoData//Abbey-IMG_0209.jpg'
 output='.//CuczaDemoData//output.ply'
 
-data = resec.CollinearityData(camera_file, point_file)
+data = CollinearityData(camera_file, point_file)
 
 # Perform spatial resection
 x0 = np.zeros(6)
@@ -252,7 +257,7 @@ x0[3] = eop['XL']
 x0[4] = eop['YL']
 x0[5] = eop['ZL']
 
-x, cov_x, info, msg, ier = resec.leastsq(resec.coll_func, x0, Dfun=resec.coll_Dfunc, full_output=True)
+x, cov_x, info, msg, ier = leastsq(coll_func, x0, Dfun=coll_Dfunc, full_output=True)
 
 R=RotMatrixFromAngles(x[0],x[1],x[2])
 C=[x[3],x[4],x[5]]

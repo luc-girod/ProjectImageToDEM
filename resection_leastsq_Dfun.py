@@ -268,36 +268,36 @@ def coll_Dfunc(indep_vars):
 
 
 
-if len(sys.argv) > 1:
-    camera_file = sys.argv[1]
-else:
-    camera_file = 'E://WebcamFinse//Cucza//CamCucza.inp'
-if len(sys.argv) > 2:
-    point_file = sys.argv[2]
-else:
-    point_file = 'E://WebcamFinse//Cucza//GCPs_Centered.inp'
+# if len(sys.argv) > 1:
+#     camera_file = sys.argv[1]
+# else:
+#     camera_file = 'E://WebcamFinse//Cucza//CamCucza.inp'
+# if len(sys.argv) > 2:
+#     point_file = sys.argv[2]
+# else:
+#     point_file = 'E://WebcamFinse//Cucza//GCPs_Centered.inp'
 
-data = CollinearityData(camera_file, point_file)
+# data = CollinearityData(camera_file, point_file)
 
-x0 = np.zeros(6)
-# initilaize guesses for eop as read from file
-eop = data.eop
-x0[0] = eop['omega']
-x0[1] = eop['phi']
-x0[2] = eop['kappa']
-x0[3] = eop['XL']
-x0[4] = eop['YL']
-x0[5] = eop['ZL']
+# x0 = np.zeros(6)
+# # initilaize guesses for eop as read from file
+# eop = data.eop
+# x0[0] = eop['omega']
+# x0[1] = eop['phi']
+# x0[2] = eop['kappa']
+# x0[3] = eop['XL']
+# x0[4] = eop['YL']
+# x0[5] = eop['ZL']
 
-#x, cov_x, info, msg, ier = leastsq(coll_func, x0, full_output=True)
-x, cov_x, info, msg, ier = leastsq(coll_func, x0, Dfun=coll_Dfunc, full_output=True)
+# #x, cov_x, info, msg, ier = leastsq(coll_func, x0, full_output=True)
+# x, cov_x, info, msg, ier = leastsq(coll_func, x0, Dfun=coll_Dfunc, full_output=True)
 
-print(f'Solution:')
-print(f'omega, {x[0]}')
-print(f'phi, {x[1]}')
-print(f'kappa, {x[2]}')
-print(f'XL, {x[3]}')
-print(f'YL, {x[4]}')
-print(f'ZL, {x[5]}')
-print(f"number of function evaluations: {info['nfev']}")
-print(f"sum squared residuals: {np.sum(info['fvec']**2)}")
+# print(f'Solution:')
+# print(f'omega, {x[0]}')
+# print(f'phi, {x[1]}')
+# print(f'kappa, {x[2]}')
+# print(f'XL, {x[3]}')
+# print(f'YL, {x[4]}')
+# print(f'ZL, {x[5]}')
+# print(f"number of function evaluations: {info['nfev']}")
+# print(f"sum squared residuals: {np.sum(info['fvec']**2)}")
