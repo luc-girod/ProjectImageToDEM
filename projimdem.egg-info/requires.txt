@@ -1,7 +1,0 @@
-matplotlib
-pandas
-numpy
-gdal
-scipy
-geopandas
-plyfile

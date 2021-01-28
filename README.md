@@ -12,7 +12,11 @@ Luc Girod, Simon Filhol, January 2021
 
 ## 2. Installation
 ```sh
-pip install -e [path to package]
+# pull the repo locally from github
+git pull git@github.com:luc-girod/ProjectImageToDEM.git
+
+# install in developement mode
+pip install -e .
 ```
 
 ## 3. Usage
