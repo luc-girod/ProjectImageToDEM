@@ -50,7 +50,7 @@ def XYZ2Im(aPtWorld,aCam,aImSize):
     #print("PtProj =", aPtProj)
     # 2D projected to image coordinate
     aPtIm=[aImSize[0]/2,aImSize[1]/2]+np.array(aCam[2]).dot(aPtProj)
-    if aPtIm[0]>0 and aPtIm[1]>0 and aPtIm[0]<aImSize[0] and aPtIm[1]<aImSize[1]:
+    if aPtIm[0]>=0 and aPtIm[1]>=0 and np.round(aPtIm[0])<aImSize[0] and np.round(aPtIm[1])<aImSize[1]:
         return aPtIm
     else:
         return None
@@ -72,6 +72,7 @@ def Raster2Array(raster_file, raster_band=1, nan_value=-9999):
     Xsize=myRaster.RasterXSize
     Ysize=myRaster.RasterYSize
     data=myRaster.GetRasterBand(raster_band).ReadAsArray(0, 0, Xsize, Ysize)
+    data=data.astype(float)
     data[data==nan_value] = np.nan
 
     # define extent and resoltuion from geotiff metadata
@@ -84,10 +85,10 @@ def Raster2Array(raster_file, raster_band=1, nan_value=-9999):
     XX, YY = np.meshgrid(Xs, Ys)
     
     XYZ = np.vstack((XX.flatten(),YY.flatten(),data.flatten())).T 
-    return XYZ, geot[1]
+    return XYZ
 
 
-def ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=-9999):
+def ProjectImage2DEM(dem_file, viewshed_file, image_file, output, aCam, dem_nan_value=-9999, PlyOffset=[0,0]):
     '''
     Function to project an image to a DEM
 
@@ -98,12 +99,11 @@ def ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=-9999):
     '''
     print('aCam=', aCam)
     tic = time.perf_counter()
-    aDEM_as_list, GSD =Raster2Array(dem_file,nan_value=dem_nan_value)
+    aDEM_as_list=Raster2Array(dem_file,nan_value=dem_nan_value)
+    aViewshed_as_list=Raster2Array(viewshed_file)
 
     toc = time.perf_counter()
     print(f"DEM converted in {toc - tic:0.4f} seconds")
-    # Compute the distance between every point in the DEM and the camera
-    aDistArray=np.linalg.norm(aDEM_as_list-aCam[0], axis=1)
 
     # Load in image
     anImage=pyplot.imread(image_file)
@@ -113,35 +113,24 @@ def ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=-9999):
     else:
             anImage = np.stack((anImage[:,:,0].T,anImage[:,:,1].T,anImage[:,:,2].T), axis=2)
             
-    # Project all DEM points to the image, and compute the projected opint size to make sure no point go through        
-    # For each pixel in image, store the XYZ position of the point projected to it,
-    # and the distance to that point, if a new point would take the same position,
-    # keep the closest point
+
     
     # Create output object
-    aXYZinImage=np.zeros([anImage.shape[0],anImage.shape[1],4])*np.nan
+    aXYZinImage=np.zeros([anImage.shape[0],anImage.shape[1],3])*np.nan
     
+    # Project all DEM points in the viewshed to the image
     tic = time.perf_counter()
     for p in range(aDEM_as_list.shape[0]):
-        # Project a the NE and SW corners of a DEM pixel in image
-        NEcorner=np.array([aDEM_as_list[p][0]-GSD/2,aDEM_as_list[p][1]+GSD/2,aDEM_as_list[p][2]])
-        aProjectedNEPoint=XYZ2Im(NEcorner,aCam,anImage.shape)
-        SWcorner=np.array([aDEM_as_list[p][0]+GSD/2,aDEM_as_list[p][1]-GSD/2,aDEM_as_list[p][2]])
-        aProjectedSWPoint=XYZ2Im(SWcorner,aCam,anImage.shape)
-        if not ((aProjectedNEPoint is None) or (aProjectedSWPoint is None)):
-            for i in range(int(np.round(aProjectedNEPoint[0])),int(np.round(aProjectedSWPoint[0]))):
-                for j in range(int(np.round(aProjectedSWPoint[1])),int(np.round(aProjectedNEPoint[1]))):
-                        # Get distance from image already registered for that pixel
-                        aDist=aXYZinImage[i,j][3]
-                        # if the registered distance is nan (nothing has been registered before)
-                        # or if the distance for a new candidate is smaller than the registered distance
-                        # then replace the registered XYZ point (and associated distance) with the new point
-                        if np.isnan(aDist) or (not np.isnan(aDistArray[p]) and aDist>aDistArray[p]):
-                            #print(int(aProjectedPoint[0]),int(aProjectedPoint[1]))
-                            aXYZinImage[i,j]=[aDEM_as_list[p][0],aDEM_as_list[p][1],aDEM_as_list[p][2],aDistArray[p]]
-                            #print(aXYZinImage[int(aProjectedPoint[0]),int(aProjectedPoint[1])])
-                        #else:
-                        #    print('Nope ', aDist, aDistArray[i])  
+        # Check if in viewshed
+        if aViewshed_as_list[p][2]==255:
+        # Project a the DEM pixel in image
+            aWorldPt=np.array([aDEM_as_list[p][0],aDEM_as_list[p][1],aDEM_as_list[p][2]])
+            aProjectedPoint=XYZ2Im(aWorldPt,aCam,anImage.shape)
+            if not (aProjectedPoint is None):
+                    xim=int(aProjectedPoint[0])
+                    yim=int(aProjectedPoint[1])
+                    aXYZinImage[xim,yim]=aWorldPt
+                    
     toc = time.perf_counter()
     print(f"Position of each pixel computed in {toc - tic:0.4f} seconds")
             
@@ -150,8 +139,8 @@ def ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=-9999):
     # export each point X, Y, Z, R, G, B
     for i in range(anImage.shape[0]):
         for j in range(anImage.shape[1]):
-            if not np.isnan(aXYZinImage[i,j][3]):
-                aPoint=np.array([(aXYZinImage[i,j][0],aXYZinImage[i,j][1],aXYZinImage[i,j][2], anImage[i,j][0],anImage[i,j][1],anImage[i,j][2])],dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'),('red', 'u1'), ('green', 'u1'),('blue', 'u1')])
+            if not np.isnan(aXYZinImage[i,j][0]):
+                aPoint=np.array([(aXYZinImage[i,j][0]-PlyOffset[0],aXYZinImage[i,j][1]-PlyOffset[1],aXYZinImage[i,j][2], anImage[i,j][0],anImage[i,j][1],anImage[i,j][2])],dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'),('red', 'u1'), ('green', 'u1'),('blue', 'u1')])
                 vertex=np.concatenate((vertex,aPoint), axis=0)
     el = plyfile.PlyElement.describe(vertex, 'vertex')
     plyfile.PlyData([el], text=True).write(output)
@@ -218,6 +207,7 @@ camera_file = './/FinseDemoData//CamFinseInit.inp'
 point_file = './/FinseDemoData//GCPs_WebcamFinse_Centered3.inp'
 Foc=1484
 dem_file='.//FinseDemoData//time_lapse_finse_DSM_mid.tif'
+viewshed_file='.//FinseDemoData//viewshed_mid.tif'
 image_file='.//FinseDemoData//2019-05-24_12-00.jpg'
 output='.//FinseDemoData//output.ply'
 
@@ -242,7 +232,7 @@ C=[x[3]+410000,x[4]+6710000,x[5]]
 C=[419169.86,6718421.39,1215]
 R=RotMatrixFromAngles(np.pi/2.1,-np.pi/8,-np.pi/8)
 aCam=[C,R,Foc]
-ProjectImage2DEM(dem_file, image_file, output, aCam, dem_nan_value=1137.75)
+ProjectImage2DEM(dem_file, viewshed_file, image_file, output, aCam, dem_nan_value=1137.75, PlyOffset=[410000,6710000])
 
 
 
