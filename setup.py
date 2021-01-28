@@ -18,7 +18,7 @@ setup(
 
     # Author details
     author=['Simon Filhol','Luc Girod'],
-    author_email=['simon.filhol@geo.uio.no','luc.girod@geo.uio.no']
+    author_email=['simon.filhol@geo.uio.no','luc.girod@geo.uio.no'],
 
     # Choose your license
     license='MIT',
