@@ -48,6 +48,15 @@ class resection():
                 self.rotation = None
                 self.new_cam = None
         self.estimate = estimate
+        
+        res_ini = self.collinearity_func(self.x0)
+        idx = np.arange(0,res_ini.__len__(),2)
+        self.GCPs['residual_x_lstsq'] = np.nan
+        self.GCPs['residual_y_lstsq'] = np.nan
+        self.GCPs['residual_x_ini'] = np.nan
+        self.GCPs['residual_y_ini'] = np.nan
+        self.GCPs['residual_x_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx]
+        self.GCPs['residual_y_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx+1]
     
     def RotMatrixFromAngles(self, omega, phi, kappa):
         '''
@@ -91,9 +100,12 @@ class resection():
         Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
         M = Mkp * Mph * Mom
 
-        F = np.zeros(2*self.GCPs.shape[0])
+        tmp = self.GCPs.loc[self.GCPs.lstsq_IO.astype(bool)].reset_index(drop=True)
         
-        for i, row in self.GCPs.iterrows():
+        F = np.zeros(2*tmp.shape[0])
+        
+        
+        for i, row in tmp.iterrows():
             uvw = M * np.matrix([[row.x_world - XL], [row.y_world-YL], [row.z_world-ZL]])
             resx = row.x_img - self.cam.iop.x0 + self.cam.iop.Foc * uvw[0,0] / uvw[2,0]
             resy = row.y_img - self.cam.iop.y0 + self.cam.iop.Foc * uvw[1,0] / uvw[2,0]
@@ -103,11 +115,28 @@ class resection():
         return F
     
     
-    def estimate_cam(self, x_offset=0, y_offset=0, method='dogbox', loss='cauchy'): 
+    def estimate_cam(self, x_offset=0, y_offset=0, method='dogbox', loss='cauchy', verbose=1): 
         # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
-        res = optimize.least_squares(self.collinearity_func, self.x0, loss=loss, method=method)
+        res = optimize.least_squares(self.collinearity_func, self.x0, loss=loss, method=method, verbose=verbose)
+        self.estimate.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
+        self.estimate.lstsq_results = res
         self.estimate.center = [res.x[3] + x_offset, res.x[4] + y_offset, res.x[5]]
         self.estimate.rotation = self.RotMatrixFromAngles(res.x[0],res.x[1],res.x[2])
         self.estimate.new_cam = [self.estimate.center, self.estimate.rotation, self.cam.iop.Foc]
+        
+        idx = np.arange(0,res.fun.__len__(),2)
+        self.GCPs['residual_x_lstsq'] = np.nan
+        self.GCPs['residual_y_lstsq'] = np.nan
+        self.GCPs['residual_x_lstsq'].loc[self.GCPs.lstsq_IO.astype(bool)] = res.fun[idx]
+        self.GCPs['residual_y_lstsq'].loc[self.GCPs.lstsq_IO.astype(bool)] = res.fun[idx+1]
+        
+        RMSE_ini = np.sqrt(np.sum(self.GCPs.residual_x_ini**2 + self.GCPs.residual_y_ini**2)/res.fun.__len__())
+        print('RMSE initial = ', RMSE_ini)
+        print('RMSE lstsq = ', self.estimate.RMSE)
         return self.estimate.new_cam
+    
+    def print_residuals(self):
+        
+        print(self.GCPs[['name','residual_x_ini', 'residual_y_ini', 'residual_x_lstsq',
+       'residual_y_lstsq']].to_string())
 

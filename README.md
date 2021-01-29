@@ -47,10 +47,10 @@ Input needed for the resection are:
 
 2. save the GCPs image and world coordinates in a csv file as follow:
 ```csv
-name x_img y_img x_world y_world z_world
-p1 -557.5 251 188.439 108.181 9.922
-p2 56.5 286 218.21 114.282 4.2
-p3 -353.5 347 196.444 115.668 3.113
+name x_img y_img x_world y_world z_world lstsq_IO
+p1 -557.5 251 188.439 108.181 9.922 1
+p2 56.5 286 218.21 114.282 4.2 0
+p3 -353.5 347 196.444 115.668 3.113 1
 ```
 #### 3.1.2. Compute Resection
 
@@ -60,6 +60,7 @@ cam_file = 'CuczaDemoData/CamCucza.json'
 GCP_file = 'CuczaDemoData/GCPs_Centered.csv'
 test = rs.resection(cam_file, GCP_file)
 test.estimate_cam()
+test.print_residuals()
 ```
 
 Resection uses `scipy.optimize.least_square` to estimate the new camera orientation.
