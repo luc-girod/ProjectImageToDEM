@@ -1,13 +1,13 @@
-name x_img y_img x_world y_world z_world
-WestRoofEdge -557.5 251 188.439 108.181 9.922
-TopParasol 56.5 286 218.21 114.282 4.2
-NorthWestWallCorner -353.5 347 196.444 115.668 3.113
-SouthEastRoofEdge 489.5 -243 239.154 89.195 16.838
-CloisterArcadeSouthWest -294.5 -362 203.559 79.73 6.51
-CloisterArcadeSouthEast 209.5 -243 228.018 87.71 6.6
-CloisterArcadeNorthWest -335.5 106 198.954 102.008 6.806
-Centerfountain -61.203 20.185 213.389 99.861 3.105
-RoofSW -424.69 -303.111 197.088 82.114 11.829
-MarkerGrass -224.086 185.847 204.051 107.854 2.716
-SEGalleryEdge 208.862 -115.817 227.627 94.012 6.485
-SWRooftopEdge -557.672 -327.054 191.975 80.93 13.79
+name x_img y_img x_world y_world z_world lstsq_IO
+WestRoofEdge -557.5 251 188.439 108.181 9.922 1
+TopParasol 56.5 286 218.21 114.282 4.2 1
+NorthWestWallCorner -353.5 347 196.444 115.668 3.113 1
+SouthEastRoofEdge 489.5 -243 239.154 89.195 16.838 1
+CloisterArcadeSouthWest -294.5 -362 203.559 79.73 6.51 1
+CloisterArcadeSouthEast 209.5 -243 228.018 87.71 6.6 1
+CloisterArcadeNorthWest -335.5 106 198.954 102.008 6.806 1
+Centerfountain -61.203 20.185 213.389 99.861 3.105 1
+RoofSW -424.69 -303.111 197.088 82.114 11.829 1
+MarkerGrass -224.086 185.847 204.051 107.854 2.716 1
+SEGalleryEdge 208.862 -115.817 227.627 94.012 6.485 1
+SWRooftopEdge -557.672 -327.054 191.975 80.93 13.79 1

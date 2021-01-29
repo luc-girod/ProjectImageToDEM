@@ -27,20 +27,30 @@ from types import SimpleNamespace
 from math import sin, cos
 
 class resection():
-    def __init__(self, camera_file, GCP_file, delimiter_GCP=' '):
+    def __init__(self, camera_file, GCP_file, delimiter_GCP=' ', x_offset=None, y_offset=None, z_offset=None):
         
         #Load camera parameters
         with open(camera_file, 'r') as myfile:
             self.cam = json.loads(myfile.read(), object_hook=lambda d: SimpleNamespace(**d))
-        self.x0 = [self.cam.eop.omega,
-                  self.cam.eop.phi,
-                  self.cam.eop.kappa,
-                  self.cam.eop.X_ini,
-                  self.cam.eop.Y_ini,
-                  self.cam.eop.Z_ini]
+        
         # Load GCP coordinates
         # headers must be: name x_img y_img x_world y_world z_world
         self.GCPs = pd.read_csv(GCP_file, delimiter=delimiter_GCP)
+        
+        if x_offset is None:
+            self.x_offset = self.GCPs.x_world.mean()
+        else:
+            self.x_offset = x_offset
+            
+        if y_offset is None:
+            self.y_offset = self.GCPs.y_world.mean()
+        else:
+            self.y_offset = y_offset
+        
+        if z_offset is None:
+            self.z_offset = self.GCPs.z_world.mean()
+        else:
+            self.z_offset = z_offset
         
         class estimate:
             def __init__(self):
@@ -49,6 +59,15 @@ class resection():
                 self.new_cam = None
         self.estimate = estimate
         
+        self.x0 = [self.cam.eop.omega,
+                  self.cam.eop.phi,
+                  self.cam.eop.kappa,
+                  self.cam.eop.X_ini - self.x_offset,
+                  self.cam.eop.Y_ini - self.y_offset,
+                  self.cam.eop.Z_ini - self.z_offset]
+        self.GCPs['x_world_offset'] = self.GCPs.x_world - self.x_offset
+        self.GCPs['y_world_offset'] = self.GCPs.y_world - self.y_offset
+        self.GCPs['z_world_offset'] = self.GCPs.z_world - self.z_offset
         res_ini = self.collinearity_func(self.x0)
         idx = np.arange(0,res_ini.__len__(),2)
         self.GCPs['residual_x_lstsq'] = np.nan
@@ -57,6 +76,10 @@ class resection():
         self.GCPs['residual_y_ini'] = np.nan
         self.GCPs['residual_x_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx]
         self.GCPs['residual_y_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx+1]
+        
+        
+        
+        
     
     def RotMatrixFromAngles(self, omega, phi, kappa):
         '''
@@ -106,7 +129,7 @@ class resection():
         
         
         for i, row in tmp.iterrows():
-            uvw = M * np.matrix([[row.x_world - XL], [row.y_world-YL], [row.z_world-ZL]])
+            uvw = M * np.matrix([[row.x_world_offset - XL], [row.y_world_offset - YL], [row.z_world_offset - ZL]])
             resx = row.x_img - self.cam.iop.x0 + self.cam.iop.Foc * uvw[0,0] / uvw[2,0]
             resy = row.y_img - self.cam.iop.y0 + self.cam.iop.Foc * uvw[1,0] / uvw[2,0]
             
@@ -115,13 +138,13 @@ class resection():
         return F
     
     
-    def estimate_cam(self, x_offset=0, y_offset=0, method='dogbox', loss='cauchy', verbose=1): 
+    def estimate_cam(self, method='dogbox', loss='cauchy', verbose=1): 
         # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
         res = optimize.least_squares(self.collinearity_func, self.x0, loss=loss, method=method, verbose=verbose)
         self.estimate.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
         self.estimate.lstsq_results = res
-        self.estimate.center = [res.x[3] + x_offset, res.x[4] + y_offset, res.x[5]]
-        self.estimate.rotation = self.RotMatrixFromAngles(res.x[0],res.x[1],res.x[2])
+        self.estimate.center = [res.x[3] + self.x_offset, res.x[4] + self.y_offset, res.x[5] + self.z_offset]
+        self.estimate.rotation = self.RotMatrixFromAngles(res.x[0], res.x[1], res.x[2])
         self.estimate.new_cam = [self.estimate.center, self.estimate.rotation, self.cam.iop.Foc]
         
         idx = np.arange(0,res.fun.__len__(),2)
@@ -140,3 +163,44 @@ class resection():
         print(self.GCPs[['name','residual_x_ini', 'residual_y_ini', 'residual_x_lstsq',
        'residual_y_lstsq']].to_string())
 
+    def plot_residuals(self):
+        fig, ax = plt.subplots(3,2,sharex=True, sharey=True)
+        sc1 = ax[0,0].scatter(self.GCPs.x_img, self.GCPs.y_img, 
+                              c=self.GCPs.residual_x_ini,
+                              cmap=plt.cm.RdBu,
+                              vmin= -self.GCPs[['residual_x_ini', 'residual_y_ini']].abs().max().max(),
+                              vmax= self.GCPs[['residual_x_ini', 'residual_y_ini']].abs().max().max())
+        ax[0,0].set_title('Initial Residuals in X')
+        plt.colorbar(sc1, ax=ax[0,0])
+        sc2 = ax[0,1].scatter(self.GCPs.x_img, self.GCPs.y_img,
+                              c=self.GCPs.residual_y_ini,
+                              cmap=plt.cm.RdBu,
+                              vmin= -self.GCPs[['residual_x_ini', 'residual_y_ini']].abs().max().max(),
+                              vmax= self.GCPs[['residual_x_ini', 'residual_y_ini']].abs().max().max())
+        ax[0,1].set_title('Initial Residuals in Y')
+        plt.colorbar(sc2, ax=ax[0,1])
+        sc3 = ax[1,0].scatter(self.GCPs.x_img, self.GCPs.y_img,
+                              c=self.GCPs.residual_x_lstsq,
+                              cmap=plt.cm.RdBu,
+                              vmin= -self.GCPs[['residual_x_lstsq', 'residual_y_lstsq']].abs().max().max(),
+                              vmax= self.GCPs[['residual_x_lstsq', 'residual_y_lstsq']].abs().max().max())
+        ax[1,0].set_title('LstSq Residuals in X')
+        plt.colorbar(sc3, ax=ax[1,0])
+        sc4 = ax[1,1].scatter(self.GCPs.x_img, self.GCPs.y_img,
+                              c=self.GCPs.residual_y_lstsq,
+                              cmap=plt.cm.RdBu,
+                              vmin= -self.GCPs[['residual_x_lstsq', 'residual_y_lstsq']].abs().max().max(),
+                              vmax= self.GCPs[['residual_x_lstsq', 'residual_y_lstsq']].abs().max().max())
+        ax[1,1].set_title('LstSq Residuals in Y')
+        plt.colorbar(sc4, ax=ax[1,1])
+
+        sc5 = ax[2,0].scatter(self.GCPs.x_img, 
+                              self.GCPs.y_img, 
+                              c=self.GCPs.residual_x_ini - self.GCPs.residual_x_lstsq)
+        ax[2,0].set_title('Diff in X')
+        plt.colorbar(sc5, ax=ax[2,0])
+        sc6 = ax[2,1].scatter(self.GCPs.x_img, 
+                              self.GCPs.y_img, 
+                              c=self.GCPs.residual_y_ini - self.GCPs.residual_y_lstsq)
+        ax[2,1].set_title('Diff in Y')
+        plt.colorbar(sc6, ax=ax[2,1])
