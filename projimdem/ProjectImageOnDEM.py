@@ -114,6 +114,3 @@ class ProjIm2dem():
         print('Ortho file extracted')
         
         return 0
-
-
-
