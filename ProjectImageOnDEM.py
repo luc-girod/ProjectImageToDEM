@@ -9,11 +9,10 @@ import numpy as np
 import gdal
 from optparse import OptionParser
 from matplotlib import pyplot
-import plyfile
 import time
-import resection_leastsq_Dfun as resec
 from scipy.optimize import leastsq
-
+from osgeo import osr
+    
 def RotMatrixFromAngles(O,P,K):
     
     RX=np.array([[1,0,0],
@@ -56,54 +55,34 @@ def XYZ2Im(aPtWorld,aCam,aImSize):
         return None
 
 
-def Raster2Array(raster_file, raster_band=1, nan_value=-9999):
-    '''
-    Function to convert a raster to an array
-
-    :param raster_file: raster filepath
-    :param raster_band: band to export
-    :nan_value: value recognized as nan in raster. Default -9999
-    :return:  array with the columns X,Y,value.
-    '''
-    
-    # Open reference DEM
-    myRaster=gdal.Open(raster_file)
-    geot = myRaster.GetGeoTransform()
-    Xsize=myRaster.RasterXSize
-    Ysize=myRaster.RasterYSize
-    data=myRaster.GetRasterBand(raster_band).ReadAsArray(0, 0, Xsize, Ysize)
-    data=data.astype(float)
-    data[data==nan_value] = np.nan
-
-    # define extent and resoltuion from geotiff metadata
-    extent = [geot[0], geot[0] + np.round(geot[1],3)*Xsize, geot[3], geot[3] + np.round(geot[5],3)*Ysize]
-
-    
-    # Create the X,Y coordinate meshgrid
-    Xs = np.linspace(extent[0]+np.round(geot[1],3),extent[1], Xsize)
-    Ys = np.linspace(extent[2]+ np.round(geot[5],3), extent[3], Ysize)
-    XX, YY = np.meshgrid(Xs, Ys)
-    
-    XYZ = np.vstack((XX.flatten(),YY.flatten(),data.flatten())).T 
-    return XYZ
-
-
-def ProjectImage2DEM(dem_file, viewshed_file, image_file, output, aCam, dem_nan_value=-9999, PlyOffset=[0,0]):
+def ProjectImage2DEM(dem_file, viewshed_file, image_file, output, aCam, dem_nan_value=-9999):
     '''
     Function to project an image to a DEM
 
     :param dem_file: DEM raster filepath
+    :param viewshed_file: viewshed raster filepath, must be same geometry as DEM
     :param image_file: image filepath
     :param output: output point cloud filepath
     :param aCam: array describing a camera [position, rotation, focal]
     '''
     print('aCam=', aCam)
-    tic = time.perf_counter()
-    aDEM_as_list=Raster2Array(dem_file,nan_value=dem_nan_value)
-    aViewshed_as_list=Raster2Array(viewshed_file)
-
-    toc = time.perf_counter()
-    print(f"DEM converted in {toc - tic:0.4f} seconds")
+    
+    # Load in DEM
+    aDEM=gdal.Open(dem_file)
+    geot = aDEM.GetGeoTransform()
+    Xsize=aDEM.RasterXSize
+    Ysize=aDEM.RasterYSize
+    aDEMdata=aDEM.GetRasterBand(1).ReadAsArray(0, 0, Xsize, Ysize)
+    aDEMdata[aDEMdata==dem_nan_value] = np.nan
+    # define extent and resoluion from geotiff metadata
+    extent = [geot[0], geot[0] + np.round(geot[1],3)*Xsize, geot[3], geot[3] + np.round(geot[5],3)*Ysize]
+    Xs = np.linspace(extent[0]+np.round(geot[1],3),extent[1], Xsize)
+    Ys = np.linspace(extent[2]+ np.round(geot[5],3), extent[3], Ysize)
+    
+    # Load in viewshed
+    # TODO, generate it here
+    aViewshed=gdal.Open(viewshed_file)
+    aViewshedData=aViewshed.GetRasterBand(1).ReadAsArray(0, 0, Xsize, Ysize)
 
     # Load in image
     anImage=pyplot.imread(image_file)
@@ -116,36 +95,45 @@ def ProjectImage2DEM(dem_file, viewshed_file, image_file, output, aCam, dem_nan_
 
     
     # Create output object
-    aXYZinImage=np.zeros([anImage.shape[0],anImage.shape[1],3])*np.nan
+    anOrtho=np.zeros((Ysize, Xsize,3), dtype=np.uint8)
     
     # Project all DEM points in the viewshed to the image
     tic = time.perf_counter()
-    for p in range(aDEM_as_list.shape[0]):
-        # Check if in viewshed
-        if aViewshed_as_list[p][2]==255:
-        # Project a the DEM pixel in image
-            aWorldPt=np.array([aDEM_as_list[p][0],aDEM_as_list[p][1],aDEM_as_list[p][2]])
-            aProjectedPoint=XYZ2Im(aWorldPt,aCam,anImage.shape)
-            if not (aProjectedPoint is None):
-                    xim=int(aProjectedPoint[0])
-                    yim=int(aProjectedPoint[1])
-                    aXYZinImage[xim,yim]=aWorldPt
-                    
-    toc = time.perf_counter()
-    print(f"Position of each pixel computed in {toc - tic:0.4f} seconds")
-            
-    # export ply file
-    vertex = np.array([],dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'),('red', 'u1'), ('green', 'u1'),('blue', 'u1')])
-    # export each point X, Y, Z, R, G, B
-    for i in range(anImage.shape[0]):
-        for j in range(anImage.shape[1]):
-            if not np.isnan(aXYZinImage[i,j][0]):
-                aPoint=np.array([(aXYZinImage[i,j][0]-PlyOffset[0],aXYZinImage[i,j][1]-PlyOffset[1],aXYZinImage[i,j][2], anImage[i,j][0],anImage[i,j][1],anImage[i,j][2])],dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'),('red', 'u1'), ('green', 'u1'),('blue', 'u1')])
-                vertex=np.concatenate((vertex,aPoint), axis=0)
-    el = plyfile.PlyElement.describe(vertex, 'vertex')
-    plyfile.PlyData([el], text=True).write(output)
-    print('Total points : ', vertex.shape)
-    print('PLY file extracted')
+    for x in range(0,Xsize):
+        for y in range(0,Ysize):
+            if aViewshedData[y][x]==255:
+                aWorldPt=np.array([Xs[x],Ys[y],aDEMdata[y][x]])
+                aProjectedPoint=XYZ2Im(aWorldPt,aCam,anImage.shape)
+                if not (aProjectedPoint is None):
+                    anOrtho[y][x]=anImage[int(aProjectedPoint[0])][int(aProjectedPoint[1])]
+                        
+    toc = time.perf_counter()    
+    
+    print(f"Ortho computed in {toc - tic:0.4f} seconds")
+    
+    fileformat = "GTiff"
+    driver = gdal.GetDriverByName(fileformat)
+    metadata = driver.GetMetadata()
+    if metadata.get(gdal.DCAP_CREATE) == "YES":
+        print("Driver {} supports Create() method.".format(fileformat))
+    
+    if metadata.get(gdal.DCAP_CREATECOPY) == "YES":
+        print("Driver {} supports CreateCopy() method.".format(fileformat))
+    
+    dst_ds = driver.Create(output, xsize=Xsize, ysize=Ysize,
+                    bands=3, eType=gdal.GDT_Byte)
+
+    dst_ds.SetGeoTransform(geot)
+    srs = osr.SpatialReference()
+    srs.SetUTM(32, 1)
+    srs.SetWellKnownGeogCS("WGS84")
+    dst_ds.SetProjection(srs.ExportToWkt())
+    dst_ds.GetRasterBand(1).WriteArray(anOrtho[:,:,0])
+    dst_ds.GetRasterBand(2).WriteArray(anOrtho[:,:,1])
+    dst_ds.GetRasterBand(3).WriteArray(anOrtho[:,:,2])
+    # Once we're done, close properly the dataset
+    dst_ds = None
+    print('Ortho file extracted')
     
     return 0
 
@@ -201,6 +189,8 @@ def main():
 
     return 0
 
+
+
 # Input Finse
 #
 camera_file = './/FinseDemoData//CamFinseInit.inp'
@@ -209,7 +199,7 @@ Foc=1484
 dem_file='.//FinseDemoData//time_lapse_finse_DSM_mid.tif'
 viewshed_file='.//FinseDemoData//viewshed_mid.tif'
 image_file='.//FinseDemoData//2019-05-24_12-00.jpg'
-output='.//FinseDemoData//output.ply'
+output='.//FinseDemoData//output.tif'
 
 
 data = CollinearityData(camera_file, point_file)
@@ -232,7 +222,7 @@ C=[x[3]+410000,x[4]+6710000,x[5]]
 C=[419169.86,6718421.39,1215]
 R=RotMatrixFromAngles(np.pi/2.1,-np.pi/8,-np.pi/8)
 aCam=[C,R,Foc]
-ProjectImage2DEM(dem_file, viewshed_file, image_file, output, aCam, dem_nan_value=1137.75, PlyOffset=[410000,6710000])
+ProjectImage2DEM(dem_file, viewshed_file, image_file, output, aCam, dem_nan_value=1137.75)
 
 
 
