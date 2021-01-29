@@ -4,3 +4,5 @@ FinseDemoData/time_lapse_finse_DSM.tif
 *.ini
 *.pyc
 FinseDemoData/output.tif
+FinseDemoData/output.tif.aux.xml
+FinseDemoData/time_lapse_finse_DSM_mid.tif.aux.xml
