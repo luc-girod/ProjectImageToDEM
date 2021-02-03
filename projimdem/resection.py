@@ -27,7 +27,7 @@ from types import SimpleNamespace
 from math import sin, cos
 
 class resection():
-    def __init__(self, camera_file, GCP_file, delimiter_GCP=' ', x_offset=None, y_offset=None, z_offset=None):
+    def __init__(self, camera_file, GCP_file, delimiter_GCP=' ', x_offset=None, y_offset=None, z_offset=None, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):
         
         #Load camera parameters
         with open(camera_file, 'r') as myfile:
@@ -52,6 +52,25 @@ class resection():
         else:
             self.z_offset = z_offset
         
+        self.free_param = free_param
+        
+        self.x0_dict = {}
+        for param in free_param:
+            if param in ['omega', 'kappa', 'phi', 'X_ini', 'Y_ini', 'Z_ini']:
+                p = self.cam.eop.__getattribute__(param)
+                self.x0_dict[param] = p
+                if param =='X_ini':
+                    self.x0_dict[param] = p - self.x_offset
+                elif param =='Y_ini':
+                    self.x0_dict[param] = p - self.y_offset
+                elif param =='Z_ini':
+                    self.x0_dict[param] = p - self.z_offset
+            if param in ['Foc']:
+                p = self.cam.iop.__getattribute__(param)
+                self.x0_dict[param] = p
+        self.x0 = list(self.x0_dict.values())
+        self.param_bounds = (param_bounds)
+        
         class estimate:
             def __init__(self):
                 self.center = None
@@ -59,16 +78,13 @@ class resection():
                 self.new_cam = None
         self.estimate = estimate
         
-        self.x0 = [self.cam.eop.omega,
-                  self.cam.eop.phi,
-                  self.cam.eop.kappa,
-                  self.cam.eop.X_ini - self.x_offset,
-                  self.cam.eop.Y_ini - self.y_offset,
-                  self.cam.eop.Z_ini - self.z_offset]
+        
         self.GCPs['x_world_offset'] = self.GCPs.x_world - self.x_offset
         self.GCPs['y_world_offset'] = self.GCPs.y_world - self.y_offset
         self.GCPs['z_world_offset'] = self.GCPs.z_world - self.z_offset
+        
         res_ini = self.collinearity_func(self.x0)
+        
         idx = np.arange(0,res_ini.__len__(),2)
         self.GCPs['residual_x_lstsq'] = np.nan
         self.GCPs['residual_y_lstsq'] = np.nan
@@ -110,13 +126,29 @@ class resection():
         Returns:
             sum of squared residuals of collinearity eqns
         """
-
-        omega = indep_vars[0]
-        phi = indep_vars[1]
-        kappa = indep_vars[2]
-        XL = indep_vars[3]
-        YL = indep_vars[4]
-        ZL = indep_vars[5]
+        
+        omega = self.cam.eop.omega
+        phi = self.cam.eop.phi
+        kappa = self.cam.eop.kappa
+        XL = self.cam.eop.X_ini - self.x_offset
+        YL = self.cam.eop.Y_ini - self.y_offset
+        ZL = self.cam.eop.Z_ini - self.z_offset
+        Foc = self.cam.iop.Foc
+        
+        if 'omega' in self.x0_dict.keys():
+            omega = indep_vars[list(self.x0_dict.keys()).index('omega')]
+        if 'phi' in self.x0_dict.keys():
+            phi = indep_vars[list(self.x0_dict.keys()).index('phi')]
+        if 'omega' in self.x0_dict.keys():
+            kappa = indep_vars[list(self.x0_dict.keys()).index('kappa')]
+        if 'X_ini' in self.x0_dict.keys():
+            XL = indep_vars[list(self.x0_dict.keys()).index('X_ini')]
+        if 'Y_ini' in self.x0_dict.keys():
+            YL = indep_vars[list(self.x0_dict.keys()).index('Y_ini')]
+        if 'Z_ini' in self.x0_dict.keys():
+            ZL = indep_vars[list(self.x0_dict.keys()).index('Z_ini')]
+        if 'Foc' in self.x0_dict.keys():
+            Foc = indep_vars[list(self.x0_dict.keys()).index('Foc')]
 
         Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
         Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
@@ -130,22 +162,64 @@ class resection():
         
         for i, row in tmp.iterrows():
             uvw = M * np.matrix([[row.x_world_offset - XL], [row.y_world_offset - YL], [row.z_world_offset - ZL]])
-            resx = row.x_img - self.cam.iop.x0 + self.cam.iop.Foc * uvw[0,0] / uvw[2,0]
-            resy = row.y_img - self.cam.iop.y0 + self.cam.iop.Foc * uvw[1,0] / uvw[2,0]
+            resx = row.x_img - self.cam.iop.x0 + Foc * uvw[0,0] / uvw[2,0]
+            resy = row.y_img - self.cam.iop.y0 + Foc * uvw[1,0] / uvw[2,0]
             
             F[2*i], F[2*i+1] = resx, resy
 
         return F
     
     
+    
     def estimate_cam(self, method='dogbox', loss='cauchy', verbose=1): 
         # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
-        res = optimize.least_squares(self.collinearity_func, self.x0, loss=loss, method=method, verbose=verbose)
+        
+        
+        res = optimize.least_squares(self.collinearity_func, self.x0, 
+                                     loss=loss, method=method, verbose=verbose,
+                                    bounds=self.param_bounds)
         self.estimate.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
         self.estimate.lstsq_results = res
-        self.estimate.center = [res.x[3] + self.x_offset, res.x[4] + self.y_offset, res.x[5] + self.z_offset]
-        self.estimate.rotation = self.RotMatrixFromAngles(res.x[0], res.x[1], res.x[2])
-        self.estimate.new_cam = [self.estimate.center, self.estimate.rotation, self.cam.iop.Foc]
+        
+        
+        if 'omega' in self.x0_dict.keys():
+            omega = res.x[list(self.x0_dict.keys()).index('omega')]
+        else:
+            omega = self.cam.eop.omega
+            
+        if 'phi' in self.x0_dict.keys():
+            phi = res.x[list(self.x0_dict.keys()).index('phi')]
+        else:
+            phi = self.cam.eop.phi
+            
+        if 'kappa' in self.x0_dict.keys():
+            kappa = res.x[list(self.x0_dict.keys()).index('kappa')]
+        else:
+            kappa = self.cam.eop.kappa
+            
+        if 'X_ini' in self.x0_dict.keys():
+            X_ini = res.x[list(self.x0_dict.keys()).index('X_ini')]
+        else:
+            X_ini = self.cam.eop.X_ini - self.x_offset
+            
+        if 'Z_ini' in self.x0_dict.keys():
+            Z_ini = res.x[list(self.x0_dict.keys()).index('Z_ini')]
+        else:
+            Z_ini = self.cam.eop.Z_ini - self.z_offset
+            
+        if 'Y_ini' in self.x0_dict.keys():
+            Y_ini = res.x[list(self.x0_dict.keys()).index('Y_ini')]
+        else:
+            Y_ini = self.cam.eop.Y_ini - self.y_offset
+            
+        if 'Foc' in self.x0_dict.keys():
+            Foc = res.x[list(self.x0_dict.keys()).index('Foc')]
+        else:
+            Foc = self.cam.iop.Foc
+            
+        self.estimate.center = [X_ini + self.x_offset, Y_ini + self.y_offset, Z_ini + self.z_offset]
+        self.estimate.rotation = self.RotMatrixFromAngles(omega, phi, kappa)
+        self.estimate.new_cam = [self.estimate.center, self.estimate.rotation, Foc]
         
         idx = np.arange(0,res.fun.__len__(),2)
         self.GCPs['residual_x_lstsq'] = np.nan
