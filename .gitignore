@@ -2,6 +2,6 @@
 FinseDemoData/time_lapse_finse_DSM.tif
 *.ini
 *.pyc
-*.ipynb*
+*.ipynb_c*
 *.aux.xml
 projimdem.egg-info/
