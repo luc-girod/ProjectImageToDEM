@@ -71,12 +71,15 @@ class resection():
         self.x0 = list(self.x0_dict.values())
         self.param_bounds = (param_bounds)
         
-        class estimate:
+        class new_cam:
             def __init__(self):
                 self.center = None
                 self.rotation = None
-                self.new_cam = None
-        self.estimate = estimate
+                self.proj_param = None
+                self.omega = None
+                self.kappa = None
+                self.phi = None
+        self.new_cam = new_cam
         
         
         self.GCPs['x_world_offset'] = self.GCPs.x_world - self.x_offset
@@ -112,6 +115,10 @@ class resection():
                  [0,0,1]])
         M = RX.dot(RY.dot(RZ)).dot(np.array([[1,0,0],[0,-1,0],[0,0,-1]]))
 
+        #Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
+        #Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
+        #Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
+        #M = Mkp * Mph * Mom    
         return M
     
     def collinearity_func(self, indep_vars):
@@ -169,7 +176,14 @@ class resection():
 
         return F
     
-    
+    def proj_XYZ2img(self, XYZ, omega, phi, kappa):
+        
+        Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
+        Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
+        Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
+        M = Mkp * Mph * Mom
+        
+        
     
     def estimate_cam(self, method='dogbox', loss='cauchy', verbose=1): 
         # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
@@ -178,48 +192,48 @@ class resection():
         res = optimize.least_squares(self.collinearity_func, self.x0, 
                                      loss=loss, method=method, verbose=verbose,
                                     bounds=self.param_bounds)
-        self.estimate.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
-        self.estimate.lstsq_results = res
+        self.new_cam.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
+        self.new_cam.lstsq_results = res
         
         
         if 'omega' in self.x0_dict.keys():
-            omega = res.x[list(self.x0_dict.keys()).index('omega')]
+            self.new_cam.omega = res.x[list(self.x0_dict.keys()).index('omega')]
         else:
-            omega = self.cam.eop.omega
+            self.new_cam.omega = self.cam.eop.omega
             
         if 'phi' in self.x0_dict.keys():
-            phi = res.x[list(self.x0_dict.keys()).index('phi')]
+            self.new_cam.phi = res.x[list(self.x0_dict.keys()).index('phi')]
         else:
-            phi = self.cam.eop.phi
+            self.new_cam.phi = self.cam.eop.phi
             
         if 'kappa' in self.x0_dict.keys():
-            kappa = res.x[list(self.x0_dict.keys()).index('kappa')]
+            self.new_cam.kappa = res.x[list(self.x0_dict.keys()).index('kappa')]
         else:
-            kappa = self.cam.eop.kappa
+            self.new_cam.kappa = self.cam.eop.kappa
             
         if 'X_ini' in self.x0_dict.keys():
-            X_ini = res.x[list(self.x0_dict.keys()).index('X_ini')]
+            self.new_cam.X_ini = res.x[list(self.x0_dict.keys()).index('X_ini')]
         else:
-            X_ini = self.cam.eop.X_ini - self.x_offset
+            self.new_cam.X_ini = self.cam.eop.X_ini - self.x_offset
             
         if 'Z_ini' in self.x0_dict.keys():
-            Z_ini = res.x[list(self.x0_dict.keys()).index('Z_ini')]
+            self.new_cam.Z_ini = res.x[list(self.x0_dict.keys()).index('Z_ini')]
         else:
-            Z_ini = self.cam.eop.Z_ini - self.z_offset
+            self.new_cam.Z_ini = self.cam.eop.Z_ini - self.z_offset
             
         if 'Y_ini' in self.x0_dict.keys():
-            Y_ini = res.x[list(self.x0_dict.keys()).index('Y_ini')]
+            self.new_cam.Y_ini = res.x[list(self.x0_dict.keys()).index('Y_ini')]
         else:
-            Y_ini = self.cam.eop.Y_ini - self.y_offset
+            self.new_cam.Y_ini = self.cam.eop.Y_ini - self.y_offset
             
         if 'Foc' in self.x0_dict.keys():
-            Foc = res.x[list(self.x0_dict.keys()).index('Foc')]
+            self.new_cam.Foc = res.x[list(self.x0_dict.keys()).index('Foc')]
         else:
-            Foc = self.cam.iop.Foc
+            self.new_cam.Foc = self.cam.iop.Foc
             
-        self.estimate.center = [X_ini + self.x_offset, Y_ini + self.y_offset, Z_ini + self.z_offset]
-        self.estimate.rotation = self.RotMatrixFromAngles(omega, phi, kappa)
-        self.estimate.new_cam = [self.estimate.center, self.estimate.rotation, Foc]
+        self.new_cam.center = [self.new_cam.X_ini + self.x_offset, self.new_cam.Y_ini + self.y_offset, self.new_cam.Z_ini + self.z_offset]
+        self.new_cam.rotation = self.RotMatrixFromAngles(self.new_cam.omega, self.new_cam.phi, self.new_cam.kappa)
+        self.new_cam.proj_param = [self.new_cam.center, self.new_cam.rotation, self.new_cam.Foc]
         
         idx = np.arange(0,res.fun.__len__(),2)
         self.GCPs['residual_x_lstsq'] = np.nan
@@ -229,8 +243,8 @@ class resection():
         
         RMSE_ini = np.sqrt(np.sum(self.GCPs.residual_x_ini**2 + self.GCPs.residual_y_ini**2)/res.fun.__len__())
         print('RMSE initial = ', RMSE_ini)
-        print('RMSE lstsq = ', self.estimate.RMSE)
-        return self.estimate.new_cam
+        print('RMSE lstsq = ', self.new_cam.RMSE)
+        return self.new_cam.proj_param
     
     def print_residuals(self):
         
