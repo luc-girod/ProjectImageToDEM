@@ -20,8 +20,8 @@ finse = rs.resection(cam_file, GCP_file)
 finse.estimate_cam()
 finse.print_residuals()
 
-dem_file = './example/FinseDemoData/time_lapse_finse_DSM.tif'
-viewshed_file = './example/FinseDemoData/viewshed_1m.tif'
+dem_file = './example/FinseDemoData/time_lapse_finse_DSM_mid.tif'
+viewshed_file = './example/FinseDemoData/viewshed_test.tif'
 image_file = './example/FinseDemoData/2019-05-24_12-00.jpg'
 output_file = './example/FinseDemoData/finse_proj_1m.tif'
 

@@ -9,7 +9,8 @@ import gdal
 from matplotlib import pyplot
 import time
 from osgeo import osr
-    
+import os
+
 class ProjIm2dem():
     def __init__(self, dem_file, viewshed_file, image_file, cam_param, output_file, dem_nan_value=-9999):
         
@@ -27,6 +28,14 @@ class ProjIm2dem():
         self.Xs = np.linspace(self.extent[0]+np.round(self.geot[1],3), self.extent[1], self.Xsize)
         self.Ys = np.linspace(self.extent[2]+ np.round(self.geot[5],3), self.extent[3], self.Ysize)
         # TODO, generate viewshed here 
+        # Compute DEM Z at Camera XY
+        col = int((self.cam_param[0][0] - self.geot[0]) / self.Xsize)
+        row = int((self.geot[3] - self.cam_param[0][1] ) / self.Ysize)
+        ZDEMatCamera=self.dem_data[row][col]
+        ZCameraOverDEM=self.cam_param[0][2]-ZDEMatCamera
+        command='gdal_viewshed -ox ' + str(self.cam_param[0][0]) +' -oy ' + str(self.cam_param[0][1])  +' -oz ' + str(ZCameraOverDEM) + ' ' + str(dem_file) + ' ' + str(viewshed_file)
+        print(command)
+        os.system(command)
         self.viewshed_raster = gdal.Open(viewshed_file)
         self.viewshed_data = self.viewshed_raster.GetRasterBand(1).ReadAsArray(0, 0, self.Xsize, self.Ysize)
         
