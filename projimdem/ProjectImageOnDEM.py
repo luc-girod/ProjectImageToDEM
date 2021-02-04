@@ -13,6 +13,17 @@ import os
 
 class ProjIm2dem():
     def __init__(self, dem_file, viewshed_file, image_file, cam_param, output_file, dem_nan_value=-9999):
+        '''
+        dem_file: geotif of the DEM
+        viewshed_file: name for the viewshade file (will be computed by gdal based on camera parameters)
+        image_file:
+        cam_param:
+        output_file:
+        dem_nan_value:
+        
+        TODO: 
+        - review the viewshed file. add option to not have to compute it each time
+        '''
         
         self.output_file = output_file
         self.cam_param = cam_param
@@ -33,6 +44,8 @@ class ProjIm2dem():
         row = int((self.geot[3] - self.cam_param[0][1] ) / self.Ysize)
         ZDEMatCamera=self.dem_data[row][col]
         ZCameraOverDEM=self.cam_param[0][2]-ZDEMatCamera
+        
+        # Compute viewshade file using GDAL and the new camear prosition
         command='gdal_viewshed -ox ' + str(self.cam_param[0][0]) +' -oy ' + str(self.cam_param[0][1])  +' -oz ' + str(ZCameraOverDEM) + ' ' + str(dem_file) + ' ' + str(viewshed_file)
         print(command)
         os.system(command)
@@ -44,7 +57,7 @@ class ProjIm2dem():
             self.image_T = self.image.T
             self.image_T = np.stack((self.image_T, self.image_T, self.image_T), axis=2)
         else:
-                self.image_T = np.stack((self.image[:,:,0].T, self.image[:,:,1].T, self.image[:,:,2].T), axis=2)
+            self.image_T = np.stack((self.image[:,:,0].T, self.image[:,:,1].T, self.image[:,:,2].T), axis=2)
                 
         # Create output object
         self.ortho = np.zeros((self.Ysize, self.Xsize, 3), dtype=np.uint8)
