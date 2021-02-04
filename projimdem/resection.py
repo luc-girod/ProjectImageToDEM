@@ -25,9 +25,10 @@ import json
 import pandas as pd
 from types import SimpleNamespace
 from math import sin, cos
+from matplotlib import pyplot
 
 class resection():
-    def __init__(self, camera_file, GCP_file, delimiter_GCP=' ', x_offset=None, y_offset=None, z_offset=None, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):
+    def __init__(self, camera_file, GCP_file, image_file, delimiter_GCP=' ', x_offset=None, y_offset=None, z_offset=None, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):
         
         #Load camera parameters
         with open(camera_file, 'r') as myfile:
@@ -95,7 +96,7 @@ class resection():
         self.GCPs['residual_y_ini'] = np.nan
         self.GCPs['residual_x_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx]
         self.GCPs['residual_y_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx+1]
-        
+        self.image = pyplot.imread(image_file)
         
         
         
@@ -176,6 +177,22 @@ class resection():
 
         return F
     
+    def proj_GCPs2img(self):
+            self.GCPs['x_img_repoj']=self.GCPs['x_img']-self.GCPs['residual_x_lstsq']+self.image.shape[1]/2
+            self.GCPs['y_img_repoj']=-(self.GCPs['y_img']-self.GCPs['residual_y_lstsq']-self.image.shape[0]/2)
+            fig, ax = plt.subplots()
+            ax.imshow(self.image)
+            pyplot.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
+            for i, txt in enumerate(self.GCPs['name']):
+                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)))
+                
+            
+            pyplot.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')
+            for i, txt in enumerate(self.GCPs['name']):
+                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]))
+            ax.legend()                
+
+
     def proj_XYZ2img(self, XYZ, omega, phi, kappa):
         
         Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
