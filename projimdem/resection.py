@@ -158,6 +158,7 @@ class resection():
         ZL = self.cam.eop.Z_ini - self.z_offset
         Foc = self.cam.iop.Foc
         
+        # logic to grab value from x0 no matter the order indicated
         if 'omega' in self.x0_dict.keys():
             omega = indep_vars[list(self.x0_dict.keys()).index('omega')]
         if 'phi' in self.x0_dict.keys():
@@ -234,13 +235,13 @@ class resection():
 #         ax.legend()                
         
     
-    def estimate_cam(self, method='dogbox', loss='cauchy', verbose=1): 
+    def estimate_cam(self, method='dogbox', loss='cauchy', verbose=1, f_scale=1): 
         # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
         
         # perform least square
         res = optimize.least_squares(self.collinearity_func, self.x0, 
                                      loss=loss, method=method, verbose=verbose,
-                                    bounds=self.param_bounds)
+                                    bounds=self.param_bounds, f_scale=f_scale, jac='3-point', ftol=1e-08, xtol=1e-08, gtol=1e-09)
         self.new_cam.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
         self.new_cam.lstsq_results = res
         
