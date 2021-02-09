@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-Adaptation from:
+Adaptation by S. Filhol from:
 
 > Author:  Jeffrey T. Walton, Paul Smith's College, New York
 >
@@ -25,10 +25,26 @@ import json
 import pandas as pd
 from types import SimpleNamespace
 from math import sin, cos
-from matplotlib import pyplot
 
 class resection():
+    '''
+    Class to compute resection parameter from camera parameters and GCPs 
+    '''
+    
+    
     def __init__(self, camera_file, GCP_file, image_file, delimiter_GCP=' ', x_offset=None, y_offset=None, z_offset=None, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):
+        '''
+        camera_file: json file with camera parameters
+        GCP_file: csv file with GCPs names and coordinates
+        image_file: image file (jpeg)
+        delimiter_GCP: delimiter of the csv file GCP
+        x_offset: offset in X to center the least square
+        y_offset: offset in Y to center the least square
+        z_offset: offset in Z to center the least square
+        free_param: list of choice of free parameters to fit the least square. Can be 'omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini', and 'Foc'
+        param_bounds: free parameter min and max value to bound the least square. Must be ([min1, min2, min3, ...],[max1, max2, max3, ...])
+        
+        '''
         
         #Load camera parameters
         with open(camera_file, 'r') as myfile:
@@ -38,6 +54,7 @@ class resection():
         # headers must be: name x_img y_img x_world y_world z_world
         self.GCPs = pd.read_csv(GCP_file, delimiter=delimiter_GCP)
         
+        # define offesets if not provided
         if x_offset is None:
             self.x_offset = self.GCPs.x_world.mean()
         else:
@@ -55,6 +72,7 @@ class resection():
         
         self.free_param = free_param
         
+        # Build the x0 vector including the tunning parameter for the least square
         self.x0_dict = {}
         for param in free_param:
             if param in ['omega', 'kappa', 'phi', 'X_ini', 'Y_ini', 'Z_ini']:
@@ -72,6 +90,7 @@ class resection():
         self.x0 = list(self.x0_dict.values())
         self.param_bounds = (param_bounds)
         
+        # class to store camera parameters after least square
         class new_cam:
             def __init__(self):
                 self.center = None
@@ -87,6 +106,7 @@ class resection():
         self.GCPs['y_world_offset'] = self.GCPs.y_world - self.y_offset
         self.GCPs['z_world_offset'] = self.GCPs.z_world - self.z_offset
         
+        # initialize least square with direct projection
         res_ini = self.collinearity_func(self.x0)
         
         idx = np.arange(0,res_ini.__len__(),2)
@@ -96,10 +116,10 @@ class resection():
         self.GCPs['residual_y_ini'] = np.nan
         self.GCPs['residual_x_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx]
         self.GCPs['residual_y_ini'].loc[self.GCPs.lstsq_IO.astype(bool)] = res_ini[idx+1]
-        self.image = pyplot.imread(image_file)
         
-        
-        
+        # load image
+        self.image = plt.imread(image_file)
+
     
     def RotMatrixFromAngles(self, omega, phi, kappa):
         '''
@@ -115,11 +135,6 @@ class resection():
                  [sin(kappa), cos(kappa),0],
                  [0,0,1]])
         M = RX.dot(RY.dot(RZ)).dot(np.array([[1,0,0],[0,-1,0],[0,0,-1]]))
-
-        #Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
-        #Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
-        #Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
-        #M = Mkp * Mph * Mom    
         return M
     
     def collinearity_func(self, indep_vars):
@@ -178,41 +193,58 @@ class resection():
         return F
     
     def proj_GCPs2img(self):
-            self.GCPs['x_img_repoj']=self.GCPs['x_img']-self.GCPs['residual_x_lstsq']+self.image.shape[1]/2
-            self.GCPs['y_img_repoj']=-(self.GCPs['y_img']-self.GCPs['residual_y_lstsq']-self.image.shape[0]/2)
-            fig, ax = plt.subplots()
-            ax.imshow(self.image)
-            pyplot.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
-            for i, txt in enumerate(self.GCPs['name']):
-                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)))
-                
-            
-            pyplot.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')
-            for i, txt in enumerate(self.GCPs['name']):
-                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]))
-            ax.legend()                
+        self.GCPs['x_img_repoj']=self.GCPs['x_img']-self.GCPs['residual_x_lstsq']+self.image.shape[1]/2
+        self.GCPs['y_img_repoj']=-(self.GCPs['y_img']-self.GCPs['residual_y_lstsq']-self.image.shape[0]/2)
+        fig, ax = plt.subplots(1,1)
+        ax.imshow(self.image)
+        ax.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
+        for i, txt in enumerate(self.GCPs['name']):
+            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)))
 
 
-    def proj_XYZ2img(self, XYZ, omega, phi, kappa):
+        ax.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')
+        for i, txt in enumerate(self.GCPs['name']):
+            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]))
+        ax.legend()                
+
+#         # Alternative method using reprojectin
+#         Mom = np.matrix([[1, 0, 0], [0, cos(self.new_cam.omega), sin(self.new_cam.omega)], [0, -sin(self.new_cam.omega), cos(self.new_cam.omega)]])
+#         Mph = np.matrix([[cos(self.new_cam.phi), 0, -sin(self.new_cam.phi)], [0, 1, 0], [sin(self.new_cam.phi), 0, cos(self.new_cam.phi)]])
+#         Mkp = np.matrix([[cos(self.new_cam.kappa), sin(self.new_cam.kappa), 0], [-sin(self.new_cam.kappa), cos(self.new_cam.kappa), 0], [0, 0, 1]])
+#         M = Mkp * Mph * Mom
         
-        Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
-        Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
-        Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
-        M = Mkp * Mph * Mom
+#         XYim = pd.DataFrame()
+#         for i, row in self.GCPs[['x_world_offset', 'y_world_offset', 'z_world_offset']].iterrows():
+#             uvw = M * np.matrix([[row.x_world_offset- (self.new_cam.center[0]-self.x_offset)], [row.y_world_offset - self.new_cam.center[1]+self.y_offset], [row.z_world_offset- self.new_cam.center[2]+self.z_offset]])
+#             resx = self.new_cam.Foc * uvw[0,0] / uvw[2,0]
+#             resy = self.new_cam.Foc * uvw[1,0] / uvw[2,0]
+#             XYim = XYim.append({'xim':resx,'yim':resy}, ignore_index=True)
         
+        
+#         fig, ax = plt.subplots(1,1)
+#         ax.imshow(self.image)
+#         ax.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
+#         for i, txt in enumerate(self.GCPs['name']):
+#                 ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)))
+        
+        
+#         ax.scatter(-XYim['xim']+self.image.shape[1]/2, self.image.shape[0]/2+XYim['yim'], label='Reprojected positions')
+#         for i, txt in enumerate(self.GCPs['name']):
+#             ax.annotate(self.GCPs['name'][i], (-XYim['xim'][i]+self.image.shape[1]/2, self.image.shape[0]/2+XYim['yim'][i]))
+#         ax.legend()                
         
     
     def estimate_cam(self, method='dogbox', loss='cauchy', verbose=1): 
         # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
         
-        
+        # perform least square
         res = optimize.least_squares(self.collinearity_func, self.x0, 
                                      loss=loss, method=method, verbose=verbose,
                                     bounds=self.param_bounds)
         self.new_cam.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
         self.new_cam.lstsq_results = res
         
-        
+        # extract new camera info from the least square results
         if 'omega' in self.x0_dict.keys():
             self.new_cam.omega = res.x[list(self.x0_dict.keys()).index('omega')]
         else:
@@ -258,17 +290,25 @@ class resection():
         self.GCPs['residual_x_lstsq'].loc[self.GCPs.lstsq_IO.astype(bool)] = res.fun[idx]
         self.GCPs['residual_y_lstsq'].loc[self.GCPs.lstsq_IO.astype(bool)] = res.fun[idx+1]
         
+        # Compute RMSE of the final fit
         RMSE_ini = np.sqrt(np.sum(self.GCPs.residual_x_ini**2 + self.GCPs.residual_y_ini**2)/res.fun.__len__())
         print('RMSE initial = ', RMSE_ini)
         print('RMSE lstsq = ', self.new_cam.RMSE)
         return self.new_cam.proj_param
     
+    
     def print_residuals(self):
+        '''
+        Function to print to screen the least square residual before and after
+        '''
         
         print(self.GCPs[['name','residual_x_ini', 'residual_y_ini', 'residual_x_lstsq',
        'residual_y_lstsq']].to_string())
 
     def plot_residuals(self):
+        '''
+        Visualize residuals
+        '''
         fig, ax = plt.subplots(3,2,sharex=True, sharey=True)
         sc1 = ax[0,0].scatter(self.GCPs.x_img, self.GCPs.y_img, 
                               c=self.GCPs.residual_x_ini,
