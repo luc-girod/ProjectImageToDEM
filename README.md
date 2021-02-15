@@ -18,7 +18,7 @@ git pull git@github.com:luc-girod/ProjectImageToDEM.git
 # install in developement mode
 pip install -e .
 ```
-
+**Required package:** gdal (v3.1), numpy, pandas, maptlotlib, scipy, json, osgeo
 ## 3. Usage
 ### 3.1. Resection from GCPs
 
