@@ -41,7 +41,7 @@ class resection():
         x_offset: offset in X to center the least square
         y_offset: offset in Y to center the least square
         z_offset: offset in Z to center the least square
-        free_param: list of choice of free parameters to fit the least square. Can be 'omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini', and 'Foc'
+        free_param: list of choice of free parameters to fit the least square. Can be 'omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini', 'Foc' and radial distortion parameters 'DCx', 'DCy', 'R1', 'R3' and 'R5'
         param_bounds: free parameter min and max value to bound the least square. Must be ([min1, min2, min3, ...],[max1, max2, max3, ...])
         
         '''
@@ -84,12 +84,12 @@ class resection():
                     self.x0_dict[param] = p - self.y_offset
                 elif param =='Z_ini':
                     self.x0_dict[param] = p - self.z_offset
-            if param in ['Foc']:
+            if param in ['Foc', 'DCx', 'DCy','R1', 'R3', 'R5']:
                 p = self.cam.iop.__getattribute__(param)
                 self.x0_dict[param] = p
         self.x0 = list(self.x0_dict.values())
         self.param_bounds = (param_bounds)
-        
+        print(self.x0)
         # class to store camera parameters after least square
         class new_cam:
             def __init__(self):
@@ -157,6 +157,11 @@ class resection():
         YL = self.cam.eop.Y_ini - self.y_offset
         ZL = self.cam.eop.Z_ini - self.z_offset
         Foc = self.cam.iop.Foc
+        DCx = self.cam.iop.DCx
+        DCy = self.cam.iop.DCy
+        R1 = self.cam.iop.R1
+        R3 = self.cam.iop.R3
+        R5 = self.cam.iop.R5
         
         # logic to grab value from x0 no matter the order indicated
         if 'omega' in self.x0_dict.keys():
@@ -173,6 +178,16 @@ class resection():
             ZL = indep_vars[list(self.x0_dict.keys()).index('Z_ini')]
         if 'Foc' in self.x0_dict.keys():
             Foc = indep_vars[list(self.x0_dict.keys()).index('Foc')]
+        if 'DCx' in self.x0_dict.keys():
+            DCx = indep_vars[list(self.x0_dict.keys()).index('DCx')]
+        if 'DCy' in self.x0_dict.keys():
+            DCy = indep_vars[list(self.x0_dict.keys()).index('DCy')]
+        if 'R1' in self.x0_dict.keys():
+            R1 = indep_vars[list(self.x0_dict.keys()).index('R1')]
+        if 'R3' in self.x0_dict.keys():
+            R3 = indep_vars[list(self.x0_dict.keys()).index('R3')]
+        if 'R5' in self.x0_dict.keys():
+            R5 = indep_vars[list(self.x0_dict.keys()).index('R5')]
 
         Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
         Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
@@ -186,9 +201,14 @@ class resection():
         
         for i, row in tmp.iterrows():
             uvw = M * np.matrix([[row.x_world_offset - XL], [row.y_world_offset - YL], [row.z_world_offset - ZL]])
-            resx = row.x_img - self.cam.iop.x0 + Foc * uvw[0,0] / uvw[2,0]
-            resy = row.y_img - self.cam.iop.y0 + Foc * uvw[1,0] / uvw[2,0]
+            xproj_nodist = -Foc * uvw[0,0] / uvw[2,0]
+            yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
+            xproj = (xproj_nodist-DCx)*R1+pow(xproj_nodist-DCx,3)*R3+pow(xproj_nodist-DCx,5)*R5+DCx
+            yproj = (yproj_nodist-DCy)*R1+pow(yproj_nodist-DCy,3)*R3+pow(yproj_nodist-DCy,5)*R5+DCy
             
+            resx = row.x_img - xproj
+            resy = row.y_img - yproj
+            #print(row.x_img,xproj)
             F[2*i], F[2*i+1] = resx, resy
 
         return F
@@ -279,11 +299,39 @@ class resection():
         if 'Foc' in self.x0_dict.keys():
             self.new_cam.Foc = res.x[list(self.x0_dict.keys()).index('Foc')]
         else:
-            self.new_cam.Foc = self.cam.iop.Foc
+            self.new_cam.Foc = self.cam.iop.Foc     
+            
+        if 'DCx' in self.x0_dict.keys():
+            self.new_cam.DCx = res.x[list(self.x0_dict.keys()).index('DCx')]
+        else:
+            self.new_cam.DCx = self.cam.iop.DCx
+            
+        if 'DCy' in self.x0_dict.keys():
+            self.new_cam.DCy = res.x[list(self.x0_dict.keys()).index('DCy')]
+        else:
+            self.new_cam.DCy = self.cam.iop.DCy
+            
+        if 'R1' in self.x0_dict.keys():
+            self.new_cam.R1 = res.x[list(self.x0_dict.keys()).index('R1')]
+        else:
+            self.new_cam.R1 = self.cam.iop.R1
+            
+        if 'R3' in self.x0_dict.keys():
+            self.new_cam.R3 = res.x[list(self.x0_dict.keys()).index('R3')]
+        else:
+            self.new_cam.R3 = self.cam.iop.R3   
+            
+        if 'R5' in self.x0_dict.keys():
+            self.new_cam.R5 = res.x[list(self.x0_dict.keys()).index('R5')]
+        else:
+            self.new_cam.R5 = self.cam.iop.R5     
+
             
         self.new_cam.center = [self.new_cam.X_ini + self.x_offset, self.new_cam.Y_ini + self.y_offset, self.new_cam.Z_ini + self.z_offset]
         self.new_cam.rotation = self.RotMatrixFromAngles(self.new_cam.omega, self.new_cam.phi, self.new_cam.kappa)
-        self.new_cam.proj_param = [self.new_cam.center, self.new_cam.rotation, self.new_cam.Foc]
+        self.new_cam.distortion_center = [self.new_cam.DCx, self.new_cam.DCy]
+        self.new_cam.distortion_params = [self.new_cam.R1, self.new_cam.R3, self.new_cam.R5]
+        self.new_cam.proj_param = [self.new_cam.center, self.new_cam.rotation, self.new_cam.Foc, self.new_cam.distortion_center, self.new_cam.distortion_params]
         
         idx = np.arange(0,res.fun.__len__(),2)
         self.GCPs['residual_x_lstsq'] = np.nan
