@@ -43,15 +43,19 @@ class ProjIm2dem():
         col = int((self.cam_param[0][0] - self.geot[0]) / self.Xsize)
         row = int((self.geot[3] - self.cam_param[0][1] ) / self.Ysize)
         ZDEMatCamera=self.dem_data[row][col]
+        print("ZDEMatCamera", ZDEMatCamera)
+        
+        print("ZCamera", self.cam_param[0][2])
         ZCameraOverDEM=self.cam_param[0][2]-ZDEMatCamera
         
         # Compute viewshade file using GDAL and the new camear prosition
-        command='gdal_viewshed -ox ' + str(self.cam_param[0][0]) +' -oy ' + str(self.cam_param[0][1])  +' -oz ' + str(ZCameraOverDEM) + ' ' + str(dem_file) + ' ' + str(viewshed_file)
+        #command='gdal_viewshed -ox ' + str(self.cam_param[0][0]) +' -oy ' + str(self.cam_param[0][1])  +' -oz ' + str(ZCameraOverDEM) + ' ' + str(dem_file) + ' ' + str(viewshed_file)
+        command='gdal_viewshed -ox ' + str(self.cam_param[0][0]) +' -oy ' + str(self.cam_param[0][1])  +' -oz 10 ' + str(dem_file) + ' ' + str(viewshed_file)
         print(command)
         os.system(command)
         self.viewshed_raster = gdal.Open(viewshed_file)
         self.viewshed_data = self.viewshed_raster.GetRasterBand(1).ReadAsArray(0, 0, self.Xsize, self.Ysize)
-        
+        gdal.Close(viewshed_file)
         self.image = pyplot.imread(image_file)
         if len(self.image.shape)==2:
             self.image_T = self.image.T

@@ -15,8 +15,8 @@ import numpy as np
 
 cam_file = './example/FinseDemoData/CamFinseInit.json'
 GCP_file = './example/FinseDemoData/GCPs_pointagev4.csv'
-dem_file = './example/FinseDemoData/time_lapse_finse_DSM_mid.tif'
-viewshed_file = './example/FinseDemoData/viewshed_test.tif'
+dem_file = './example/FinseDemoData/time_lapse_finse_DSM_midfilled.tif'
+viewshed_file = './example/FinseDemoData/viewshed_mid.tif'
 image_file = './example/FinseDemoData/2019-05-24_12-00.jpg'
 output_file = './example/FinseDemoData/finse_proj_2m.tif'
 
@@ -28,6 +28,17 @@ finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
 finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
                     free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
                     param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,930,480,-0.00000001,-0.000000000000001,-0.0000000000000000000001], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,990,540,0.00000001,0.000000000000001,0.0000000000000000000001]))
+
+# With Distortion large numbers
+finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
+                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,930,480,-1000,-1000,-1000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,990,540,1000,1000,1000]))
+
+# With Distortion mid numbers
+finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
+                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,930,480,-1,-1,-1], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,990,540,1,1,1]))
+
 
 cam_file = './example/FinseFromPhoto4D/CamFinseInit.json'
 GCP_file = './example/FinseFromPhoto4D/GCPs.csv'

@@ -204,8 +204,8 @@ class resection():
             xproj_nodist = -Foc * uvw[0,0] / uvw[2,0]
             yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
             R=np.sqrt(pow(xproj_nodist-DCx,2)+pow(yproj_nodist-DCy,2))
-            xproj = xproj_nodist+(xproj_nodist-DCx)*(R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
-            yproj = yproj_nodist+(yproj_nodist-DCy)*(R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
+            xproj = xproj_nodist+(xproj_nodist-DCx)/(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
+            yproj = yproj_nodist+(yproj_nodist-DCy)/(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
             
             resx = row.x_img - xproj
             resy = row.y_img - yproj
@@ -345,6 +345,7 @@ class resection():
         RMSE_ini = np.sqrt(np.sum(self.GCPs.residual_x_ini**2 + self.GCPs.residual_y_ini**2)/res.fun.__len__())
         print('RMSE initial = ', RMSE_ini)
         print('RMSE lstsq = ', self.new_cam.RMSE)
+        print('Camera = ', self.new_cam.proj_param)
         return self.new_cam.proj_param
     
     
