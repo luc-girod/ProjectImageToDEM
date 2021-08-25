@@ -203,8 +203,9 @@ class resection():
             uvw = M * np.matrix([[row.x_world_offset - XL], [row.y_world_offset - YL], [row.z_world_offset - ZL]])
             xproj_nodist = -Foc * uvw[0,0] / uvw[2,0]
             yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
-            xproj = (xproj_nodist-DCx)*R1+pow(xproj_nodist-DCx,3)*R3+pow(xproj_nodist-DCx,5)*R5+DCx
-            yproj = (yproj_nodist-DCy)*R1+pow(yproj_nodist-DCy,3)*R3+pow(yproj_nodist-DCy,5)*R5+DCy
+            R=np.sqrt(pow(xproj_nodist-DCx,2)+pow(yproj_nodist-DCy,2))
+            xproj = xproj_nodist+(xproj_nodist-DCx)*(R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
+            yproj = yproj_nodist+(yproj_nodist-DCy)*(R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
             
             resx = row.x_img - xproj
             resy = row.y_img - yproj
@@ -220,12 +221,12 @@ class resection():
         ax.imshow(self.image)
         ax.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
         for i, txt in enumerate(self.GCPs['name']):
-            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)))
+            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)),color='red')
 
 
         ax.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')
         for i, txt in enumerate(self.GCPs['name']):
-            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]))
+            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]),color='red')
         ax.legend()                
 
 #         # Alternative method using reprojectin
@@ -255,13 +256,14 @@ class resection():
 #         ax.legend()                
         
     
-    def estimate_cam(self, method='dogbox', loss='cauchy', verbose=1, f_scale=1): 
+    def estimate_cam(self, method='dogbox', loss='cauchy', verbose=2, f_scale=1): 
         # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
         
         # perform least square
         res = optimize.least_squares(self.collinearity_func, self.x0, 
                                      loss=loss, method=method, verbose=verbose,
-                                    bounds=self.param_bounds, f_scale=f_scale, jac='3-point', ftol=1e-08, xtol=1e-08, gtol=1e-09)
+                                    bounds=self.param_bounds, f_scale=f_scale, jac='3-point',
+                                    ftol=1e-08, xtol=1e-08, gtol=1e-09)
         self.new_cam.RMSE = np.sqrt(np.sum(res.fun**2)/res.fun.__len__())
         self.new_cam.lstsq_results = res
         

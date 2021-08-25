@@ -27,7 +27,7 @@ finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
 # With Distortion
 finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
                     free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,930,480,0.8,-0.01,-0.0001], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,990,540,1.2,0.01,0.0001]))
+                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,930,480,-0.00000001,-0.000000000000001,-0.0000000000000000000001], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,990,540,0.00000001,0.000000000000001,0.0000000000000000000001]))
 
 cam_file = './example/FinseFromPhoto4D/CamFinseInit.json'
 GCP_file = './example/FinseFromPhoto4D/GCPs.csv'
@@ -40,9 +40,10 @@ finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
                     free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
                     param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,4000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,6000]))
 # With Distortion
+cam_file = './example/FinseFromPhoto4D/CamFinseAfterNoDist.json'
 finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
                     free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,4000,-30,-30,0.8,-0.01,-0.0001], [3.15,3.15,3.15,np.inf,np.inf,np.inf,6000,30,30,1.2,0.01,0.0001]))
+                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,4000,2728-30,1816-30,-0.00000001,-0.000000000000001,-0.0000000000000000000001], [3.15,3.15,3.15,np.inf,np.inf,np.inf,6000,2728+30,1816+30,0.00000001,0.000000000000001,0.0000000000000000000001]))
 
 
 
