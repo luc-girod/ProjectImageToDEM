@@ -18,7 +18,7 @@ GCP_file = './example/FinseDemoData/GCPs_pointagev4.csv'
 dem_file = './example/FinseDemoData/time_lapse_finse_DSM_midfilled.tif'
 viewshed_file = './example/FinseDemoData/viewshed_mid.tif'
 image_file = './example/FinseDemoData/2019-05-24_12-00.jpg'
-output_file = './example/FinseDemoData/finse_proj_2m.tif'
+output_file = './example/FinseDemoData/finse_proj_4m.tif'
 
 
 finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
