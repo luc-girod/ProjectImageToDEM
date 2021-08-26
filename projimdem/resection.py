@@ -122,6 +122,31 @@ class resection():
         self.image = plt.imread(image_file)
 
     
+    def ChangeFreeParams(self, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):          
+        self.x0_dict['omega'] = self.new_cam.omega
+        self.x0_dict['phi']   = self.new_cam.phi
+        self.x0_dict['kappa'] = self.new_cam.kappa
+        self.x0_dict['X_ini'] = self.new_cam.center[0] - self.x_offset
+        self.x0_dict['Y_ini'] = self.new_cam.center[1] - self.y_offset
+        self.x0_dict['Z_ini'] = self.new_cam.center[2] - self.z_offset
+        self.x0_dict['Foc'] = self.new_cam.Foc
+        self.x0_dict['DCx'] = self.new_cam.DCx
+        self.x0_dict['DCy'] = self.new_cam.DCy
+        self.x0_dict['K1'] = self.new_cam.K1
+        self.x0_dict['K2'] = self.new_cam.K2
+        self.x0_dict['P1'] = self.new_cam.P1
+        self.x0_dict['P2'] = self.new_cam.P2
+        self.x0_dict['P3'] = self.new_cam.P3
+        self.x0_dict['P4'] = self.new_cam.P4
+        for param in free_param:
+            # TODO, find the syntax here
+            self.x0 = list(self.x0_dict.get(x).values() for x in free_param)
+            self.param_bounds = (param_bounds)
+        print(self.x0)
+        
+        
+        
+        
     def RotMatrixFromAngles(self, omega, phi, kappa):
         '''
         Rotation matrix from angles following Micmac convention
