@@ -84,7 +84,8 @@ class resection():
                     self.x0_dict[param] = p - self.y_offset
                 elif param =='Z_ini':
                     self.x0_dict[param] = p - self.z_offset
-            if param in ['Foc', 'DCx', 'DCy','R1', 'R3', 'R5']:
+            #if param in ['Foc', 'DCx', 'DCy','R1', 'R3', 'R5']:
+            if param in ['Foc', 'DCx', 'DCy','K1', 'K2', 'P1','P2','P3','P4']:
                 p = self.cam.iop.__getattribute__(param)
                 self.x0_dict[param] = p
         self.x0 = list(self.x0_dict.values())
@@ -157,11 +158,20 @@ class resection():
         YL = self.cam.eop.Y_ini - self.y_offset
         ZL = self.cam.eop.Z_ini - self.z_offset
         Foc = self.cam.iop.Foc
+        
+        
+        
         DCx = self.cam.iop.DCx
         DCy = self.cam.iop.DCy
-        R1 = self.cam.iop.R1
-        R3 = self.cam.iop.R3
-        R5 = self.cam.iop.R5
+        #R1 = self.cam.iop.R1
+        #R3 = self.cam.iop.R3
+        #R5 = self.cam.iop.R5
+        K1 = self.cam.iop.K1
+        K2 = self.cam.iop.K2
+        P1 = self.cam.iop.P1
+        P2 = self.cam.iop.P2
+        P3 = self.cam.iop.P3
+        P4 = self.cam.iop.P4
         
         # logic to grab value from x0 no matter the order indicated
         if 'omega' in self.x0_dict.keys():
@@ -182,12 +192,24 @@ class resection():
             DCx = indep_vars[list(self.x0_dict.keys()).index('DCx')]
         if 'DCy' in self.x0_dict.keys():
             DCy = indep_vars[list(self.x0_dict.keys()).index('DCy')]
-        if 'R1' in self.x0_dict.keys():
-            R1 = indep_vars[list(self.x0_dict.keys()).index('R1')]
-        if 'R3' in self.x0_dict.keys():
-            R3 = indep_vars[list(self.x0_dict.keys()).index('R3')]
-        if 'R5' in self.x0_dict.keys():
-            R5 = indep_vars[list(self.x0_dict.keys()).index('R5')]
+        #if 'R1' in self.x0_dict.keys():
+        #    R1 = indep_vars[list(self.x0_dict.keys()).index('R1')]
+        #if 'R3' in self.x0_dict.keys():
+        #    R3 = indep_vars[list(self.x0_dict.keys()).index('R3')]
+        #if 'R5' in self.x0_dict.keys():
+        #    R5 = indep_vars[list(self.x0_dict.keys()).index('R5')]
+        if 'K1' in self.x0_dict.keys():
+            K1 = indep_vars[list(self.x0_dict.keys()).index('K1')]
+        if 'K2' in self.x0_dict.keys():
+            K2 = indep_vars[list(self.x0_dict.keys()).index('K2')]
+        if 'P1' in self.x0_dict.keys():
+            P1 = indep_vars[list(self.x0_dict.keys()).index('P1')]
+        if 'P2' in self.x0_dict.keys():
+            P2 = indep_vars[list(self.x0_dict.keys()).index('P2')]
+        if 'P3' in self.x0_dict.keys():
+            P3 = indep_vars[list(self.x0_dict.keys()).index('P3')]
+        if 'P4' in self.x0_dict.keys():
+            P4 = indep_vars[list(self.x0_dict.keys()).index('P4')]
 
         Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
         Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
@@ -203,12 +225,15 @@ class resection():
             uvw = M * np.matrix([[row.x_world_offset - XL], [row.y_world_offset - YL], [row.z_world_offset - ZL]])
             xproj_nodist = -Foc * uvw[0,0] / uvw[2,0]
             yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
-            
-            
+                        
             R=np.sqrt(pow(row.x_img-DCx,2)+pow(row.y_img-DCy,2))
-            Rdist=(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
-            x_im_nodist = DCx + (row.x_img - DCx) / Rdist
-            y_im_nodist = DCy + (row.y_img - DCy) / Rdist
+            
+            x_im_nodist = row.x_img + (row.x_img- DCx) * (K1*pow(R,2) + K2*pow(R,4)) + (P1 * (pow(R,2) + 2*pow((row.x_img - DCx),2)) + 2*P2*(row.x_img - DCx))*(row.y_img - DCy)*(1+ P3 *pow(R,2) + P4*pow(R,4))
+            y_im_nodist = row.y_img + (row.y_img- DCy)*(K1*pow(R,2) + K2*pow(R,4)) + (P1 * (pow(R,2) + 2*pow((row.y_img - DCy),2)) + 2*P2*(row.y_img - DCy))*(row.x_img - DCx)*(1+ P3 *pow(R,2) + P4*pow(R,4))
+            
+            #Rdist=(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
+            #x_im_nodist = DCx + (row.x_img - DCx) / Rdist
+            #y_im_nodist = DCy + (row.y_img - DCy) / Rdist
             
 
             resx = x_im_nodist - xproj_nodist
@@ -317,26 +342,52 @@ class resection():
         else:
             self.new_cam.DCy = self.cam.iop.DCy
             
-        if 'R1' in self.x0_dict.keys():
-            self.new_cam.R1 = res.x[list(self.x0_dict.keys()).index('R1')]
-        else:
-            self.new_cam.R1 = self.cam.iop.R1
+        #if 'R1' in self.x0_dict.keys():
+        #    self.new_cam.R1 = res.x[list(self.x0_dict.keys()).index('R1')]
+        #else:
+        #    self.new_cam.R1 = self.cam.iop.R1
             
-        if 'R3' in self.x0_dict.keys():
-            self.new_cam.R3 = res.x[list(self.x0_dict.keys()).index('R3')]
-        else:
-            self.new_cam.R3 = self.cam.iop.R3   
+        #if 'R3' in self.x0_dict.keys():
+        #    self.new_cam.R3 = res.x[list(self.x0_dict.keys()).index('R3')]
+        #else:
+        #    self.new_cam.R3 = self.cam.iop.R3   
             
-        if 'R5' in self.x0_dict.keys():
-            self.new_cam.R5 = res.x[list(self.x0_dict.keys()).index('R5')]
+        #if 'R5' in self.x0_dict.keys():
+        #    self.new_cam.R5 = res.x[list(self.x0_dict.keys()).index('R5')]
+        #else:
+        #    self.new_cam.R5 = self.cam.iop.R5    
+            
+        if 'K1' in self.x0_dict.keys():
+            self.new_cam.K1 = res.x[list(self.x0_dict.keys()).index('K1')]
         else:
-            self.new_cam.R5 = self.cam.iop.R5     
+            self.new_cam.K1 = self.cam.iop.K1
+        if 'K2' in self.x0_dict.keys():
+            self.new_cam.K2 = res.x[list(self.x0_dict.keys()).index('K2')]
+        else:
+            self.new_cam.K2 = self.cam.iop.K2
+        if 'P1' in self.x0_dict.keys():
+            self.new_cam.P1 = res.x[list(self.x0_dict.keys()).index('P1')]
+        else:
+            self.new_cam.P1 = self.cam.iop.P1
+        if 'P2' in self.x0_dict.keys():
+            self.new_cam.P2 = res.x[list(self.x0_dict.keys()).index('P2')]
+        else:
+            self.new_cam.P2 = self.cam.iop.P2
+        if 'P3' in self.x0_dict.keys():
+            self.new_cam.P3 = res.x[list(self.x0_dict.keys()).index('P3')]
+        else:
+            self.new_cam.P3 = self.cam.iop.P3
+        if 'P4' in self.x0_dict.keys():
+            self.new_cam.P4 = res.x[list(self.x0_dict.keys()).index('P4')]
+        else:
+            self.new_cam.P4 = self.cam.iop.P4
 
             
         self.new_cam.center = [self.new_cam.X_ini + self.x_offset, self.new_cam.Y_ini + self.y_offset, self.new_cam.Z_ini + self.z_offset]
         self.new_cam.rotation = self.RotMatrixFromAngles(self.new_cam.omega, self.new_cam.phi, self.new_cam.kappa)
         self.new_cam.distortion_center = [self.new_cam.DCx, self.new_cam.DCy]
-        self.new_cam.distortion_params = [self.new_cam.R1, self.new_cam.R3, self.new_cam.R5]
+        #self.new_cam.distortion_params = [self.new_cam.R1, self.new_cam.R3, self.new_cam.R5]
+        self.new_cam.distortion_params = [self.new_cam.K1, self.new_cam.K2, self.new_cam.P1,self.new_cam.P2,self.new_cam.P3,self.new_cam.P4]
         self.new_cam.proj_param = [self.new_cam.center, self.new_cam.rotation, self.new_cam.Foc, self.new_cam.distortion_center, self.new_cam.distortion_params]
         
         idx = np.arange(0,res.fun.__len__(),2)

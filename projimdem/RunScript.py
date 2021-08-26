@@ -56,6 +56,26 @@ finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
                     param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,-1000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,1000]))
 
 
+# With Distortion Model 1
+finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
+                    param_bounds=(
+                        [-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000]))
+finse.estimate_cam(method='trf', loss='soft_l1')
+
+
+finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+                    free_param=['DCx', 'DCy', 'K1', 'K2', 'P1','P2','P3','P4'],
+                    param_bounds=(
+                        [-50,-50,-10,-10,-10,-10,-10,-10], [2000,50,50,10,10,10,10,10,10]))
+
+
+finse.estimate_cam(method='trf', loss='soft_l1')
+finse.print_residuals()
+finse.proj_GCPs2img()
+
+
+
 
 cam_file = './example/FinseFromPhoto4D/CamFinseInit.json'
 GCP_file = './example/FinseFromPhoto4D/GCPs.csv'
