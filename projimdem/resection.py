@@ -204,8 +204,9 @@ class resection():
             xproj_nodist = -Foc * uvw[0,0] / uvw[2,0]
             yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
             R=np.sqrt(pow(xproj_nodist-DCx,2)+pow(yproj_nodist-DCy,2))
-            xproj = xproj_nodist+(xproj_nodist-DCx)/(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
-            yproj = yproj_nodist+(yproj_nodist-DCy)/(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
+            Rdist=(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
+            xproj=(xproj_nodist - DCx) * Rdist + DCx
+            yproj=(yproj_nodist - DCy) * Rdist + DCy
             
             resx = row.x_img - xproj
             resy = row.y_img - yproj
