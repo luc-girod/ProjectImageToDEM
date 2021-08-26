@@ -203,13 +203,16 @@ class resection():
             uvw = M * np.matrix([[row.x_world_offset - XL], [row.y_world_offset - YL], [row.z_world_offset - ZL]])
             xproj_nodist = -Foc * uvw[0,0] / uvw[2,0]
             yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
-            R=np.sqrt(pow(xproj_nodist-DCx,2)+pow(yproj_nodist-DCy,2))
-            Rdist=(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
-            xproj=(xproj_nodist - DCx) * Rdist + DCx
-            yproj=(yproj_nodist - DCy) * Rdist + DCy
             
-            resx = row.x_img - xproj
-            resy = row.y_img - yproj
+            
+            R=np.sqrt(pow(row.x_img-DCx,2)+pow(row.y_img-DCy,2))
+            Rdist=(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
+            x_im_nodist = DCx + (row.x_img - DCx) / Rdist
+            y_im_nodist = DCy + (row.y_img - DCy) / Rdist
+            
+
+            resx = x_im_nodist - xproj_nodist
+            resy = y_im_nodist - yproj_nodist
             #print(row.x_img,xproj)
             F[2*i], F[2*i+1] = resx, resy
 
