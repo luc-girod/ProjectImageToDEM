@@ -20,6 +20,37 @@ viewshed_file = './example/FinseDemoData/viewshed_mid.tif'
 image_file = './example/FinseDemoData/2019-05-24_12-00_ori.jpg'
 output_file = './example/FinseDemoData/finse_proj_4m.tif'
 
+finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
+                    param_bounds=(
+                        [-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000]))
+finse.estimate_cam(method='trf', loss='soft_l1')
+#finse.proj_GCPs2img()
+
+#finse.ChangeFreeParams(free_param=[ 'Foc','DCx', 'DCy', 'R1','R3', 'R5'],
+#                    param_bounds=([-1200,-50,-50,-10,-10,-10], [1500,50,50,10,10,10]))
+
+
+finse.ChangeFreeParams(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'K4','K5', 'P1', 'P2','P3','P4','P5','P6','P7'],
+                    param_bounds=([-50,-50,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1], [50,50,1,1,1,1,1,1,1,1,1,1,1,1]))
+
+
+finse.estimate_cam('trf',xtol=1e-18, loss='soft_l1', ftol=1e-12)
+%matplotlib
+finse.proj_GCPs2img()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
                     free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],

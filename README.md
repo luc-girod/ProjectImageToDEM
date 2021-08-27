@@ -1,6 +1,11 @@
 # ProjectImageToDEM
 Luc Girod, Simon Filhol, January 2021
 
+## 0. TODO
+- Implement distortion correction in projection to DEM
+- test implementing weight on GCPs based on distance from camera
+- Clean up script RunScript.py. 
+
 ## 1. Description
 
 **projimdem** is Python package to 
