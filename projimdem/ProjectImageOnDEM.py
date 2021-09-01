@@ -100,30 +100,30 @@ class ProjIm2dem():
             return None
     
     def img_correct_distortion(self):
-    """
-    Function to correction radial and tangential distortion of an image
-    :param img: original image
-    :return 
-    """
-    img = self.image
-    [DCx, DCy] = self.cam_param[3]
-    [K1,K2,K3,K4,K5,P1,P2,P3,P4,P5,P6,P7] = self.proj_param[4]
-    
-    Xs_dis, Ys_dis = np.meshgrid(np.arange(-img.shape[1]/2,img.shape[1]/2), 
-                        np.arange(-img.shape[0]/2,img.shape[0]/2)) 
-    # Distortion model
-    R = np.sqrt(pow(Xs_dis-DCx,2)+pow(Ys_dis-DCy,2))
+        """
+        Function to correction radial and tangential distortion of an image
+        :param img: original image
+        :return 
+        """
+        img = self.image
+        [DCx, DCy] = self.cam_param[3]
+        [K1,K2,K3,K4,K5,P1,P2,P3,P4,P5,P6,P7] = self.proj_param[4]
 
-    x_im_nodist = Xs_dis + (Xs_dis - DCx) * (K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((Xs_dis - DCx),2)) + 2*P2*(Xs_dis - DCx))*(Ys_dis - DCy)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
-    y_im_nodist = Ys_dis + (Ys_dis- DCy)*(K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((Ys_dis - DCy),2)) + 2*P2*(Ys_dis - DCy))*(Xs_dis - DCx)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
-    
-    # Project distorted image
-    img_cor = np.empty([y_im_nodist.astype(int).max() - y_im_nodist.astype(int).min()+1, x_im_nodist.astype(int).max() - x_im_nodist.astype(int).min()+1,3])
-    img_cor[(y_im_nodist.astype(int)-y_im_nodist.astype(int).min()), (x_im_nodist.astype(int)-x_im_nodist.astype(int).min()),:] = img
-    img_cor = img_cor.astype(int)
-    
-    img = None
-    return x_im_nodist, y_im_nodist, img_cor
+        Xs_dis, Ys_dis = np.meshgrid(np.arange(-img.shape[1]/2,img.shape[1]/2), 
+                            np.arange(-img.shape[0]/2,img.shape[0]/2)) 
+        # Distortion model
+        R = np.sqrt(pow(Xs_dis-DCx,2)+pow(Ys_dis-DCy,2))
+
+        x_im_nodist = Xs_dis + (Xs_dis - DCx) * (K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((Xs_dis - DCx),2)) + 2*P2*(Xs_dis - DCx))*(Ys_dis - DCy)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
+        y_im_nodist = Ys_dis + (Ys_dis- DCy)*(K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((Ys_dis - DCy),2)) + 2*P2*(Ys_dis - DCy))*(Xs_dis - DCx)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
+
+        # Project distorted image
+        img_cor = np.empty([y_im_nodist.astype(int).max() - y_im_nodist.astype(int).min()+1, x_im_nodist.astype(int).max() - x_im_nodist.astype(int).min()+1,3])
+        img_cor[(y_im_nodist.astype(int)-y_im_nodist.astype(int).min()), (x_im_nodist.astype(int)-x_im_nodist.astype(int).min()),:] = img
+        img_cor = img_cor.astype(int)
+
+        img = None
+        return x_im_nodist, y_im_nodist, img_cor
     
     
     def ProjectImage2DEM(self, return_raster=True, epsg=None):
