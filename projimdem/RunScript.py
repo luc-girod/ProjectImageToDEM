@@ -17,7 +17,7 @@ cam_file = './example/FinseDemoData/CamFinseInit.json'
 GCP_file = './example/FinseDemoData/GCPs_pointagev4.csv'
 dem_file = './example/FinseDemoData/time_lapse_finse_DSM_midfilled.tif'
 viewshed_file = './example/FinseDemoData/viewshed_mid.tif'
-image_file = './example/FinseDemoData/2019-05-24_12-00_ori.jpg'
+image_file = './example/FinseDemoData/2019-05-24_12-00_ori_marked.jpg'
 output_file = './example/FinseDemoData/finse_proj_4m.tif'
 
 finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
@@ -35,11 +35,17 @@ finse.ChangeFreeParams(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'K4','K5', 'P
                     param_bounds=([-50,-50,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1], [50,50,1,1,1,1,1,1,1,1,1,1,1,1]))
 
 
-finse.estimate_cam('trf',xtol=1e-18, loss='soft_l1', ftol=1e-12)
-%matplotlib
-finse.proj_GCPs2img()
+finse.estimate_cam('trf',xtol=1e-16, loss='soft_l1', ftol=1e-12)
+#%matplotlib
+#finse.proj_GCPs2img()
 
-
+finse_proj = pi.ProjIm2dem(dem_file=dem_file,
+                          viewshed_file=viewshed_file,
+                          image_file=image_file,
+                          cam_param=finse.new_cam.proj_param,
+                           output_file=output_file
+                          )
+finse_proj.ProjectImage2DEM(return_raster=True, epsg=32632)
 
 
 
