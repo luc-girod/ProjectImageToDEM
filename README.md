@@ -2,9 +2,13 @@
 Luc Girod, Simon Filhol, January 2021
 
 ## 0. TODO
-- Implement distortion correction in projection to DEM
-- test implementing weight on GCPs based on distance from camera
-- Clean up script RunScript.py. 
+- [x] Implement distortion correction in projection to DEM
+- [ ] test implementing weight on GCPs based on distance from camera
+- [ ] we now have a two step least square. The ideal case woulddo all at once, but we need to handle the spread in order of magnitude of the different unknowns (in particular the distortion coefficients vs. the rest)
+- [ ] Clean up script RunScript.py. 
+- [ ] add option in projection to either correct distortion or assume the image is calibrated (current version)
+- [ ] go through class and function names for better clarity
+- [ ] update README examples after changes
 
 ## 1. Description
 
