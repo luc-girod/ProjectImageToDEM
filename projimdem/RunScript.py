@@ -30,15 +30,25 @@ finse.estimate_cam(method='trf', loss='soft_l1')
 #finse.ChangeFreeParams(free_param=[ 'Foc','DCx', 'DCy', 'R1','R3', 'R5'],
 #                    param_bounds=([-1200,-50,-50,-10,-10,-10], [1500,50,50,10,10,10]))
 
+# trying an iterative appraoach...not sure if wights are any good
+for i in range(5):
+    finse.ChangeFreeParams(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'P1', 'P2','P3'],
+                        param_bounds=([-50,-50,-1e-5,-1e-10,-1e-15,-1e-2,-1e-2,-1e-2], 
+                                      [ 50, 50, 1e-5, 1e-10, 1e-15, 1e-2, 1e-2, 1e-2]))
+    
+    finse.estimate_cam('trf',xtol=1e-16, loss='soft_l1', ftol=1e-12)
+    
+    finse.ChangeFreeParams(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
+                        param_bounds=([finse.new_cam.omega-0.1, finse.new_cam.phi-0.1, finse.new_cam.kappa-0.1,finse.new_cam.X_ini-2,finse.new_cam.Y_ini-2,finse.new_cam.Z_ini-2, finse.new_cam.Foc*0.95],
+                                      [finse.new_cam.omega+0.1, finse.new_cam.phi+0.1, finse.new_cam.kappa+0.1,finse.new_cam.X_ini+2,finse.new_cam.Y_ini+2,finse.new_cam.Z_ini+2, finse.new_cam.Foc*1.05]))
+    
+    finse.estimate_cam('trf',xtol=1e-16, loss='soft_l1', ftol=1e-12)
 
-finse.ChangeFreeParams(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'K4','K5', 'P1', 'P2','P3','P4','P5','P6','P7'],
-                    param_bounds=([-50,-50,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1], [50,50,1,1,1,1,1,1,1,1,1,1,1,1]))
 
-
-finse.estimate_cam('trf',xtol=1e-16, loss='soft_l1', ftol=1e-12)
 #%matplotlib
 #finse.proj_GCPs2img()
 
+from projimdem import ProjectImageOnDEM as pi
 finse_proj = pi.ProjIm2dem(dem_file=dem_file,
                           viewshed_file=viewshed_file,
                           image_file=image_file,
@@ -47,8 +57,26 @@ finse_proj = pi.ProjIm2dem(dem_file=dem_file,
                           )
 finse_proj.ProjectImage2DEM(return_raster=True, epsg=32632)
 
+from matplotlib import pyplot
+pyplot.figure()
+pyplot.imshow(finse_proj.image_undistort)
+pyplot.scatter(finse_proj.pt_proj.X_distort,finse_proj.pt_proj.Y_distort,alpha=0.5)
 
 
+
+
+
+finse.ChangeFreeParams(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'K4','K5', 'P1', 'P2','P3','P4','P5','P6','P7'],
+                    param_bounds=([-50,-50,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1], [50,50,1,1,1,1,1,1,1,1,1,1,1,1]))
+
+
+finse.ChangeFreeParams(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc','DCx', 'DCy', 'K1', 'K2', 'K3', 'P1', 'P2','P3'],
+                    param_bounds=([finse.new_cam.omega-0.1, finse.new_cam.phi-0.1, finse.new_cam.kappa-0.1,finse.new_cam.X_ini-2,finse.new_cam.Y_ini-2,finse.new_cam.Z_ini-2, finse.new_cam.Foc*0.95, -50,-50,-1e-5,-1e-10,-1e-15,-1e-5,-1e-5,-1e-5],
+                                  [finse.new_cam.omega+0.1, finse.new_cam.phi+0.1, finse.new_cam.kappa+0.1,finse.new_cam.X_ini+2,finse.new_cam.Y_ini+2,finse.new_cam.Z_ini+2, finse.new_cam.Foc*1.05, 50,50,1e-5,1e-10,1e-15,1e-5,1e-5,1e-5]))
+
+finse.ChangeFreeParams(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
+                    param_bounds=([finse.new_cam.omega-0.1, finse.new_cam.phi-0.1, finse.new_cam.kappa-0.1,finse.new_cam.X_ini-2,finse.new_cam.Y_ini-2,finse.new_cam.Z_ini-2, finse.new_cam.Foc*0.95],
+                                  [finse.new_cam.omega+0.1, finse.new_cam.phi+0.1, finse.new_cam.kappa+0.1,finse.new_cam.X_ini+2,finse.new_cam.Y_ini+2,finse.new_cam.Z_ini+2, finse.new_cam.Foc*1.05]))
 
 
 

@@ -68,8 +68,8 @@ class ProjIm2dem():
         self.ortho = np.zeros((self.Ysize, self.Xsize, 3), dtype=np.uint8)
         
         # Compute remove radial and tangential distortion based on camera parameters
-        self.X_undistort, self.Y_undistort = self.img_correct_distortion()
-        
+        self.X_undistort, self.Y_undistort, self.image_undistort = self.img_correct_distortion()
+        self.pt_proj = pd.DataFrame()
     
     def XYZ2Im_all(self, pts_world):
         imsize = self.image.shape
@@ -78,36 +78,37 @@ class ProjIm2dem():
         
         # World to camera coordinate
         XYZ_world = pts_cam[['X_world','Y_world','Z_world']].values
-        pts_cam[['X_cam','Y_cam','Z_cam']] = pd.DataFrame((np.linalg.inv(self.cam_param[1]).dot(np.subtract(XYZ_world, self.cam_param[0]).T)).T)
+        pts_cam[['X_cam','Y_cam','Z_cam']] = pd.DataFrame((self.cam_param[1].dot(np.subtract(XYZ_world, self.cam_param[0]).T)).T)
         
         XYZ_world = None
         
         # Removeing points behind the camera
-        pts_cam.Z_cam.loc[pts_cam.Z_cam < 0] = np.nan
+        pts_cam.Z_cam.loc[pts_cam.Z_cam > 0] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
         
         pts_cam['X_proj'] = pts_cam.X_cam.values/pts_cam.Z_cam.values
         pts_cam['Y_proj'] = pts_cam.Y_cam.values/pts_cam.Z_cam.values
-        pts_cam['X_img'] = imsize[1]/2 + pts_cam['X_proj'] * self.cam_param[2]
-        pts_cam['Y_img'] = imsize[0]/2 - pts_cam['Y_proj'] * self.cam_param[2]
-        print('step 1: ', pts_cam.head())
+        pts_cam['X_img'] = imsize[1]/2 - pts_cam['X_proj'] * self.cam_param[2]
+        pts_cam['Y_img'] = imsize[0]/2 + pts_cam['Y_proj'] * self.cam_param[2]
+        print('\n step 1: \n', pts_cam.head())
         
         pts_cam.X_img.loc[(pts_cam.X_img<0) | (pts_cam.X_img>imsize[1])] = np.nan
         pts_cam.Y_img.loc[(pts_cam.Y_img<0) | (pts_cam.Y_img>imsize[0])] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
-        print('step 2: ', pts_cam.head())
+        print('\n step 2: \n', pts_cam.head())
+        print (self.X_undistort.min())
+        print (self.Y_undistort.min())
+        pts_cam['X_distort'] =  self.X_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.X_undistort.min()
+        pts_cam['Y_distort'] =  self.Y_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.Y_undistort.min()
         
-        pts_cam['X_distort'] = self.X_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)]
-        pts_cam['Y_distort'] = self.Y_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)]
-        
-        print('step 3: ', pts_cam.head())
+        print('\n step 3: \n', pts_cam.head())
         
         
-        pts_cam.X_distort.loc[(pts_cam.X_distort<0) | (pts_cam.X_distort>imsize[1])] = np.nan
-        pts_cam.Y_distort.loc[(pts_cam.Y_distort<0) | (pts_cam.Y_distort>imsize[0])] = np.nan
+        pts_cam.X_distort.loc[(pts_cam.X_distort<0) | (pts_cam.X_distort>self.image_undistort.shape[1])] = np.nan
+        pts_cam.Y_distort.loc[(pts_cam.Y_distort<0) | (pts_cam.Y_distort>self.image_undistort.shape[0])] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
         
-        print('step 4: ', pts_cam.head())
+        print('\n step 4: \n', pts_cam.head())
         
         return pts_cam
         
@@ -169,7 +170,7 @@ class ProjIm2dem():
         else:
             return None
     
-    def img_correct_distortion(self, return_image=False):
+    def img_correct_distortion(self, return_image=True):
         """
         Function to correction radial and tangential distortion of an image
         :param img: original image
@@ -185,7 +186,7 @@ class ProjIm2dem():
         R = np.sqrt(pow(Xs_dis-DCx,2)+pow(Ys_dis-DCy,2))
 
         x_im_nodist = Xs_dis + (Xs_dis - DCx) * (K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((Xs_dis - DCx),2)) + 2*P2*(Xs_dis - DCx))*(Ys_dis - DCy)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
-        y_im_nodist = Ys_dis + (Ys_dis- DCy)*(K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((Ys_dis - DCy),2)) + 2*P2*(Ys_dis - DCy))*(Xs_dis - DCx)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
+        y_im_nodist = Ys_dis + (Ys_dis - DCy) * (K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((Ys_dis - DCy),2)) + 2*P2*(Ys_dis - DCy))*(Xs_dis - DCx)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
         
         if return_image:
 
@@ -215,12 +216,11 @@ class ProjIm2dem():
         pt_world['ind_xdem'] = np.argwhere(self.viewshed_data==255)[:,1]
         pt_world['ind_ydem'] = np.argwhere(self.viewshed_data==255)[:,0]
                 
-        pt_proj = self.XYZ2Im_all(pt_world)
+        self.pt_proj = self.XYZ2Im_all(pt_world)
         
-        print('pt_proj:', pt_proj.head())
-        for i, row in pt_proj.iterrows():
-            self.ortho[row.ind_ydem.astype(int), row.ind_xdem.astype(int),:] = self.image[ row.Y_distort.astype(int), row.X_distort.astype(int), :]
-        
+        print('pt_proj:', self.pt_proj.head())
+        for i, row in self.pt_proj.iterrows():
+            self.ortho[row.ind_ydem.astype(int), row.ind_xdem.astype(int),:] = self.image_undistort[ row.Y_distort.astype(int), row.X_distort.astype(int), :]
         
         #for x in range(0, self.Xsize):
         #    for y in range(0, self.Ysize):

@@ -223,7 +223,7 @@ class resection():
         RZ = np.array([[cos(kappa),-sin(kappa),0],
                  [sin(kappa), cos(kappa),0],
                  [0,0,1]])
-        M = RX.dot(RY.dot(RZ)).dot(np.array([[1,0,0],[0,-1,0],[0,0,-1]]))
+        M = RX.dot(RY.dot(RZ))#.dot(np.array([[1,0,0],[0,-1,0],[0,0,-1]]))
         return M
     
     def collinearity_func(self, indep_vars):
@@ -315,11 +315,12 @@ class resection():
         if 'P7' in self.x0_dict.keys():
             P7 = indep_vars[list(self.x0_dict.keys()).index('P7')]
 
-        Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
-        Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
-        Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
-        M = Mkp * Mph * Mom
-
+        #Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
+        #Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
+        #Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
+        #M = Mkp * Mph * Mom
+        
+        M=self.RotMatrixFromAngles(omega, phi, kappa)
         tmp = self.GCPs.loc[self.GCPs.lstsq_IO.astype(bool)].reset_index(drop=True)
         
         F = np.zeros(2*tmp.shape[0])
