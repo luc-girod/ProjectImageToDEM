@@ -12,7 +12,7 @@ from osgeo import osr
 import os
 import pandas as pd
 
-class ProjIm2dem():
+class Projection():
     def __init__(self, dem_file, viewshed_file, image_file, cam_param, output_file, dem_nan_value=-9999):
         '''
         dem_file: geotif of the DEM
@@ -49,7 +49,7 @@ class ProjIm2dem():
         ZCameraOverDEM=self.cam_param[0][2]-ZDEMatCamera
         
         # Compute viewshade file using GDAL and the new camear prosition
-        command='gdal_viewshed -ox ' + str(self.cam_param[0][0]) +' -oy ' + str(self.cam_param[0][1])  +' -oz ' + str(ZCameraOverDEM) + ' ' + str(dem_file) + ' ' + str(viewshed_file)
+        command='gdal_viewshed -ox ' + str(self.cam_param[0][0]) +' -oy ' + str(self.cam_param[0][1]) + ' -oz ' + str(ZCameraOverDEM) + ' ' + str(dem_file) + ' ' + str(viewshed_file)
         print(command)
         os.system(command)
         self.viewshed_raster = gdal.Open(viewshed_file)
@@ -61,7 +61,7 @@ class ProjIm2dem():
             self.image_T = self.image.T
             self.image_T = np.stack((self.image_T, self.image_T, self.image_T), axis=2)
         else:
-            # generak RGB case
+            # general RGB case
             self.image_T = np.stack((self.image[:,:,0].T, self.image[:,:,1].T, self.image[:,:,2].T), axis=2)
                 
         # Create output object
@@ -71,9 +71,8 @@ class ProjIm2dem():
         self.X_undistort, self.Y_undistort, self.image_undistort = self.img_correct_distortion()
         self.pt_proj = pd.DataFrame()
     
-    def XYZ2Im_all(self, pts_world):
+    def XYZ_to_img(self, pts_world):
         imsize = self.image.shape
-        
         pts_cam = pts_world.copy()
         
         # World to camera coordinate
@@ -90,85 +89,19 @@ class ProjIm2dem():
         pts_cam['Y_proj'] = pts_cam.Y_cam.values/pts_cam.Z_cam.values
         pts_cam['X_img'] = imsize[1]/2 - pts_cam['X_proj'] * self.cam_param[2]
         pts_cam['Y_img'] = imsize[0]/2 + pts_cam['Y_proj'] * self.cam_param[2]
-        print('\n step 1: \n', pts_cam.head())
         
         pts_cam.X_img.loc[(pts_cam.X_img<0) | (pts_cam.X_img>imsize[1])] = np.nan
         pts_cam.Y_img.loc[(pts_cam.Y_img<0) | (pts_cam.Y_img>imsize[0])] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
-        print('\n step 2: \n', pts_cam.head())
-        print (self.X_undistort.min())
-        print (self.Y_undistort.min())
         pts_cam['X_distort'] =  self.X_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.X_undistort.min()
         pts_cam['Y_distort'] =  self.Y_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.Y_undistort.min()
-        
-        print('\n step 3: \n', pts_cam.head())
-        
         
         pts_cam.X_distort.loc[(pts_cam.X_distort<0) | (pts_cam.X_distort>self.image_undistort.shape[1])] = np.nan
         pts_cam.Y_distort.loc[(pts_cam.Y_distort<0) | (pts_cam.Y_distort>self.image_undistort.shape[0])] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
         
-        print('\n step 4: \n', pts_cam.head())
-        
         return pts_cam
         
-        
-        #pts_proj = [pts_cam.X/pts_cam.Z, pts_cam.Y/pts_cam.Z]
-        #pts_img = np.add(np.array([imsize[0]/2, imsize[1]/2]) + pts_proj* self.cam_param[2])
-        
-        #pts_img.X.loc[pts_img.X<0 and pts_img.X>imsize[1]] = np.nan
-        #pts_img.Y.loc[pts_img.Y<0 and pts_img.Y>imsize[0]] = np.nan
-        #pts_img = pts_img.dropna()
-        
-        #pts_distort = np.array([self.X_undistort[pts_img.Y.astype(int),pts_img.X.astype(int)],
-                                #self.Y_undistort[pts_img.Y.astype(int), pts_img.Y.astype(int)]])
-    
-        #pts_distort.X.loc[pts_distort.X<0 and pts_distort.X>imsize[1]] = np.nan
-        #pts_distort.Y.loc[pts_distort.Y<0 and pts_distort.Y>imsize[0]] = np.nan
-        #pts_distort = pts_distort.dropna()
-        
-        #return pts_distort
-        
-        
-    def XYZ2Im(self, aPtWorld, aImSize):
-        '''
-        Function to project a point in world coordinate into an image
-    
-        :param aPtWorld: 3d point in world coordinates
-        :param aCam: array describing a camera [position, rotation, focal]
-        :param aImSize: Size of the image
-        :return:  2d point in image coordinates
-        '''
-        # World to camera coordinate  
-        aPtCam = np.linalg.inv(self.cam_param[1]).dot(aPtWorld - self.cam_param[0])
-
-        # Test if point is behind camera (Z positive in Cam coordinates)
-        if aPtCam[2] < 0:
-            return None
-        #print("PtCam =", aPtCam)
-        # Camera to 2D projected coordinate
-        aPtProj = [aPtCam[0]/aPtCam[2], aPtCam[1]/aPtCam[2]]
-        #print("PtProj =", aPtProj)
-        # 2D projected to image coordinate
-        aPtIm = np.array([aImSize[0]/2, aImSize[1]/2])+np.array(self.cam_param[2]).dot(aPtProj)
-        
-        
-        # check that points falls within the pixel domain of the image
-        if aPtIm[0]>=0 and aPtIm[1]>=0 and np.round(aPtIm[0])<aImSize[0] and np.round(aPtIm[1])<aImSize[1]:
-            #print("aPtIm = ", aPtIm)
-            
-            aPtIm_distort = np.array([self.X_undistort[aPtIm[1].astype(int),aPtIm[0].astype(int)], self.Y_undistort[aPtIm[1].astype(int), aPtIm[0].astype(int)]])
-            #print("aPtIm_distort = ",aPtIm_distort)
-            aPtIm_distort = (aPtIm_distort - np.array([self.X_undistort.min(), self.Y_undistort.min()])).astype(int)
-            
-            if aPtIm_distort[0]>=0 and aPtIm_distort[1]>=0 and np.round(aPtIm_distort[0])<aImSize[0] and np.round(aPtIm_distort[1])<aImSize[1]:
-                #print("aptim_distro = ", aPtIm_distort)
-                
-                return aPtIm_distort
-            else:
-                return None
-        else:
-            return None
     
     def img_correct_distortion(self, return_image=True):
         """
@@ -200,7 +133,7 @@ class ProjIm2dem():
         else:
             return x_im_nodist, y_im_nodist
     
-    def ProjectImage2DEM(self, return_raster=True, epsg=None):
+    def project_img_to_DEM(self, return_raster=True, epsg=None):
         '''
         Function to project an image to a DEM
         '''
@@ -213,24 +146,17 @@ class ProjIm2dem():
         pt_world['X_world'] = x_mesh[self.viewshed_data==255].flatten()
         pt_world['Y_world'] = y_mesh[self.viewshed_data==255].flatten()
         pt_world['Z_world'] = self.dem_data[self.viewshed_data==255].flatten()
+        pt_world['dist_cam'] = np.sqrt((pt_world.X_world - self.cam_param[0][0])**2 + 
+                                       (pt_world.Y_world - self.cam_param[0][1])**2 + 
+                                       (pt_world.Z_world - self.cam_param[0][2])**2)
         pt_world['ind_xdem'] = np.argwhere(self.viewshed_data==255)[:,1]
         pt_world['ind_ydem'] = np.argwhere(self.viewshed_data==255)[:,0]
                 
-        self.pt_proj = self.XYZ2Im_all(pt_world)
+        self.pt_proj = self.XYZ_to_img(pt_world)
         
-        print('pt_proj:', self.pt_proj.head())
+        # search for each DEM point in the viewshed its RGB value in the undistorted image to compute orthophoto
         for i, row in self.pt_proj.iterrows():
             self.ortho[row.ind_ydem.astype(int), row.ind_xdem.astype(int),:] = self.image_undistort[ row.Y_distort.astype(int), row.X_distort.astype(int), :]
-        
-        #for x in range(0, self.Xsize):
-        #    for y in range(0, self.Ysize):
-        #        if self.viewshed_data[y][x]==255:
-                    
-        #            aWorldPt = np.array([self.Xs[x], self.Ys[y], self.dem_data[y][x]])
-                    
-        #            aProjectedPoint = self.XYZ2Im(aWorldPt, self.image_T.shape)
-        #            if not (aProjectedPoint is None):
-        #                self.ortho[y][x] = self.image_T[int(aProjectedPoint[0])][int(aProjectedPoint[1])]
                             
         toc = time.perf_counter()    
         
@@ -265,7 +191,14 @@ class ProjIm2dem():
             
         return 0
 
-
+    def plot_DEM_on_img(self, color_variable='Z_world', **kwargs):
+        pyplot.figure()
+        pyplot.imshow(self.image_undistort)
+        pyplot.scatter(self.pt_proj.X_distort, 
+                    self.pt_proj.Y_distort,
+                    c=self.pt_proj[color_variable], 
+                    **kwargs)
+        pyplot.colorbar()
     
 #=================================================================================
 #--------------------------  Practical Functions -------------------------

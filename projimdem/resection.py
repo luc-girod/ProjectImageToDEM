@@ -29,11 +29,10 @@ import pandas as pd
 from types import SimpleNamespace
 from math import sin, cos
 
-class resection():
+class Resection():
     '''
     Class to compute resection parameter from camera parameters and GCPs 
     '''
-    
     
     def __init__(self, camera_file, GCP_file, image_file, delimiter_GCP=' ', x_offset=None, y_offset=None, z_offset=None, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):
         '''
@@ -44,7 +43,7 @@ class resection():
         x_offset: offset in X to center the least square
         y_offset: offset in Y to center the least square
         z_offset: offset in Z to center the least square
-        free_param: list of choice of free parameters to fit the least square. Can be 'omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini', 'Foc' and radial distortion parameters 'DCx', 'DCy', 'R1', 'R3' and 'R5'
+        free_param: list of choice of free parameters to fit the least square. Can be 'omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini', 'Foc' and radial distortion parameters 'DCx', 'DCy', 'K1', 'K2', 'K3', 'K4' and 'K5', and tangential parameters 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'
         param_bounds: free parameter min and max value to bound the least square. Must be ([min1, min2, min3, ...],[max1, max2, max3, ...])
         
         '''
@@ -125,7 +124,7 @@ class resection():
         self.image = plt.imread(image_file)
 
     
-    def ChangeFreeParams(self, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):
+    def change_free_params(self, free_param=['omega', 'phi', 'kappa'], param_bounds=([-3.15, -3.15, -3.15], [3.15,3.15,3.15])):
         self.cam.eop.omega = self.new_cam.omega
         self.cam.eop.kappa = self.new_cam.kappa
         self.cam.eop.phi = self.new_cam.phi
@@ -133,9 +132,6 @@ class resection():
         self.cam.eop.Y_ini = self.new_cam.center[1]
         self.cam.eop.X_ini = self.new_cam.center[0]
         self.cam.eop.Z_ini = self.new_cam.center[2]
-        #self.cam.iop.R1 = self.new_cam.R1
-        #self.cam.iop.R3 = self.new_cam.R3
-        #self.cam.iop.R5 = self.new_cam.R5
         self.cam.iop.K1 = self.new_cam.K1
         self.cam.iop.K2 = self.new_cam.K2
         self.cam.iop.K3 = self.new_cam.K3
@@ -195,12 +191,6 @@ class resection():
                 self.x0_dict['DCx'] = self.new_cam.DCx
             elif param == 'DCy':
                 self.x0_dict['DCy'] = self.new_cam.DCy
-            #elif param == 'R1':
-            #    self.x0_dict['R1'] = self.new_cam.R1
-            #elif param == 'R3':
-            #    self.x0_dict['R3'] = self.new_cam.R3
-            #elif param == 'R5':
-            #    self.x0_dict['R5'] = self.new_cam.R5
                     
         for param in free_param:
             self.x0 = [self.x0_dict.get(x) for x in free_param]
@@ -210,7 +200,7 @@ class resection():
         
         
         
-    def RotMatrixFromAngles(self, omega, phi, kappa):
+    def rot_matrix_from_angles(self, omega, phi, kappa):
         '''
         Rotation matrix from angles following Micmac convention
         '''
@@ -246,12 +236,8 @@ class resection():
         YL = self.cam.eop.Y_ini - self.y_offset
         ZL = self.cam.eop.Z_ini - self.z_offset
         Foc = self.cam.iop.Foc
-        
         DCx = self.cam.iop.DCx
         DCy = self.cam.iop.DCy
-        #R1 = self.cam.iop.R1
-        #R3 = self.cam.iop.R3
-        #R5 = self.cam.iop.R5
         K1 = self.cam.iop.K1
         K2 = self.cam.iop.K2
         K3 = self.cam.iop.K3
@@ -284,12 +270,6 @@ class resection():
             DCx = indep_vars[list(self.x0_dict.keys()).index('DCx')]
         if 'DCy' in self.x0_dict.keys():
             DCy = indep_vars[list(self.x0_dict.keys()).index('DCy')]
-        #if 'R1' in self.x0_dict.keys():
-        #    R1 = indep_vars[list(self.x0_dict.keys()).index('R1')]
-        #if 'R3' in self.x0_dict.keys():
-        #    R3 = indep_vars[list(self.x0_dict.keys()).index('R3')]
-        #if 'R5' in self.x0_dict.keys():
-        #    R5 = indep_vars[list(self.x0_dict.keys()).index('R5')]
         if 'K1' in self.x0_dict.keys():
             K1 = indep_vars[list(self.x0_dict.keys()).index('K1')]
         if 'K2' in self.x0_dict.keys():
@@ -315,12 +295,8 @@ class resection():
         if 'P7' in self.x0_dict.keys():
             P7 = indep_vars[list(self.x0_dict.keys()).index('P7')]
 
-        #Mom = np.matrix([[1, 0, 0], [0, cos(omega), sin(omega)], [0, -sin(omega), cos(omega)]])
-        #Mph = np.matrix([[cos(phi), 0, -sin(phi)], [0, 1, 0], [sin(phi), 0, cos(phi)]])
-        #Mkp = np.matrix([[cos(kappa), sin(kappa), 0], [-sin(kappa), cos(kappa), 0], [0, 0, 1]])
-        #M = Mkp * Mph * Mom
         
-        M=self.RotMatrixFromAngles(omega, phi, kappa)
+        M = self.rot_matrix_from_angles(omega, phi, kappa)
         tmp = self.GCPs.loc[self.GCPs.lstsq_IO.astype(bool)].reset_index(drop=True)
         
         F = np.zeros(2*tmp.shape[0])
@@ -337,62 +313,35 @@ class resection():
             x_im_nodist = row.x_img + (row.x_img- DCx) * (K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((row.x_img - DCx),2)) + 2*P2*(row.x_img - DCx))*(row.y_img - DCy)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
             y_im_nodist = row.y_img + (row.y_img- DCy)*(K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((row.y_img - DCy),2)) + 2*P2*(row.y_img - DCy))*(row.x_img - DCx)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
             
-            #Rdist=(1+R1*pow(R,2)+R3*pow(R,4)+R5*pow(R,6))
-            #x_im_nodist = DCx + (row.x_img - DCx) / Rdist
-            #y_im_nodist = DCy + (row.y_img - DCy) / Rdist
-            
-
             resx = x_im_nodist - xproj_nodist
             resy = y_im_nodist - yproj_nodist
-            #print(row.x_img,xproj)
             F[2*i], F[2*i+1] = resx, resy
 
         return F
     
-    def proj_GCPs2img(self):
+    def project_GCPs_to_img(self, plot=True):
         self.GCPs['x_img_repoj']=self.GCPs['x_img']-self.GCPs['residual_x_lstsq']+self.image.shape[1]/2
         self.GCPs['y_img_repoj']=-(self.GCPs['y_img']-self.GCPs['residual_y_lstsq']-self.image.shape[0]/2)
-        fig, ax = plt.subplots(1,1)
-        ax.imshow(self.image)
-        ax.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
-        for i, txt in enumerate(self.GCPs['name']):
-            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)),color='red')
+        if plot:
+            fig, ax = plt.subplots(1,1)
+            ax.imshow(self.image)
+            ax.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
+            for i, txt in enumerate(self.GCPs['name']):
+                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)),color='red')
 
 
-        ax.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')
-        for i, txt in enumerate(self.GCPs['name']):
-            ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]),color='red')
-        ax.legend()                
-
-#         # Alternative method using reprojectin
-#         Mom = np.matrix([[1, 0, 0], [0, cos(self.new_cam.omega), sin(self.new_cam.omega)], [0, -sin(self.new_cam.omega), cos(self.new_cam.omega)]])
-#         Mph = np.matrix([[cos(self.new_cam.phi), 0, -sin(self.new_cam.phi)], [0, 1, 0], [sin(self.new_cam.phi), 0, cos(self.new_cam.phi)]])
-#         Mkp = np.matrix([[cos(self.new_cam.kappa), sin(self.new_cam.kappa), 0], [-sin(self.new_cam.kappa), cos(self.new_cam.kappa), 0], [0, 0, 1]])
-#         M = Mkp * Mph * Mom
-        
-#         XYim = pd.DataFrame()
-#         for i, row in self.GCPs[['x_world_offset', 'y_world_offset', 'z_world_offset']].iterrows():
-#             uvw = M * np.matrix([[row.x_world_offset- (self.new_cam.center[0]-self.x_offset)], [row.y_world_offset - self.new_cam.center[1]+self.y_offset], [row.z_world_offset- self.new_cam.center[2]+self.z_offset]])
-#             resx = self.new_cam.Foc * uvw[0,0] / uvw[2,0]
-#             resy = self.new_cam.Foc * uvw[1,0] / uvw[2,0]
-#             XYim = XYim.append({'xim':resx,'yim':resy}, ignore_index=True)
-        
-        
-#         fig, ax = plt.subplots(1,1)
-#         ax.imshow(self.image)
-#         ax.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
-#         for i, txt in enumerate(self.GCPs['name']):
-#                 ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)))
-        
-        
-#         ax.scatter(-XYim['xim']+self.image.shape[1]/2, self.image.shape[0]/2+XYim['yim'], label='Reprojected positions')
-#         for i, txt in enumerate(self.GCPs['name']):
-#             ax.annotate(self.GCPs['name'][i], (-XYim['xim'][i]+self.image.shape[1]/2, self.image.shape[0]/2+XYim['yim'][i]))
-#         ax.legend()                
+            ax.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')
+            for i, txt in enumerate(self.GCPs['name']):
+                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]),color='red')
+            ax.legend()                   
         
     
     def estimate_cam(self, method='dogbox', loss='cauchy', verbose=2, f_scale=1, xtol=1e-8, ftol=1e-08, gtol=1e-09): 
-        # see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
+        '''
+        Function to perform camera estimation of the free parameters using least square.
+        
+        see: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
+        '''
         
         # perform least square
         res = optimize.least_squares(self.collinearity_func, self.x0, 
@@ -406,62 +355,38 @@ class resection():
             self.new_cam.omega = res.x[list(self.x0_dict.keys()).index('omega')]
         else:
             self.new_cam.omega = self.cam.eop.omega
-            
         if 'phi' in self.x0_dict.keys():
             self.new_cam.phi = res.x[list(self.x0_dict.keys()).index('phi')]
         else:
             self.new_cam.phi = self.cam.eop.phi
-            
         if 'kappa' in self.x0_dict.keys():
             self.new_cam.kappa = res.x[list(self.x0_dict.keys()).index('kappa')]
         else:
             self.new_cam.kappa = self.cam.eop.kappa
-            
         if 'X_ini' in self.x0_dict.keys():
             self.new_cam.X_ini = res.x[list(self.x0_dict.keys()).index('X_ini')]
         else:
             self.new_cam.X_ini = self.cam.eop.X_ini - self.x_offset
-            
         if 'Z_ini' in self.x0_dict.keys():
             self.new_cam.Z_ini = res.x[list(self.x0_dict.keys()).index('Z_ini')]
         else:
             self.new_cam.Z_ini = self.cam.eop.Z_ini - self.z_offset
-            
         if 'Y_ini' in self.x0_dict.keys():
             self.new_cam.Y_ini = res.x[list(self.x0_dict.keys()).index('Y_ini')]
         else:
             self.new_cam.Y_ini = self.cam.eop.Y_ini - self.y_offset
-            
         if 'Foc' in self.x0_dict.keys():
             self.new_cam.Foc = res.x[list(self.x0_dict.keys()).index('Foc')]
         else:
             self.new_cam.Foc = self.cam.iop.Foc     
-            
         if 'DCx' in self.x0_dict.keys():
             self.new_cam.DCx = res.x[list(self.x0_dict.keys()).index('DCx')]
         else:
             self.new_cam.DCx = self.cam.iop.DCx
-            
         if 'DCy' in self.x0_dict.keys():
             self.new_cam.DCy = res.x[list(self.x0_dict.keys()).index('DCy')]
         else:
-            self.new_cam.DCy = self.cam.iop.DCy
-            
-        #if 'R1' in self.x0_dict.keys():
-        #    self.new_cam.R1 = res.x[list(self.x0_dict.keys()).index('R1')]
-        #else:
-        #    self.new_cam.R1 = self.cam.iop.R1
-            
-        #if 'R3' in self.x0_dict.keys():
-        #    self.new_cam.R3 = res.x[list(self.x0_dict.keys()).index('R3')]
-        #else:
-        #    self.new_cam.R3 = self.cam.iop.R3   
-            
-        #if 'R5' in self.x0_dict.keys():
-        #    self.new_cam.R5 = res.x[list(self.x0_dict.keys()).index('R5')]
-        #else:
-        #    self.new_cam.R5 = self.cam.iop.R5    
-            
+            self.new_cam.DCy = self.cam.iop.DCy    
         if 'K1' in self.x0_dict.keys():
             self.new_cam.K1 = res.x[list(self.x0_dict.keys()).index('K1')]
         else:
@@ -513,9 +438,8 @@ class resection():
 
             
         self.new_cam.center = [self.new_cam.X_ini + self.x_offset, self.new_cam.Y_ini + self.y_offset, self.new_cam.Z_ini + self.z_offset]
-        self.new_cam.rotation = self.RotMatrixFromAngles(self.new_cam.omega, self.new_cam.phi, self.new_cam.kappa)
+        self.new_cam.rotation = self.rot_matrix_from_angles(self.new_cam.omega, self.new_cam.phi, self.new_cam.kappa)
         self.new_cam.distortion_center = [self.new_cam.DCx, self.new_cam.DCy]
-        #self.new_cam.distortion_params = [self.new_cam.R1, self.new_cam.R3, self.new_cam.R5]
         self.new_cam.distortion_params = [self.new_cam.K1, self.new_cam.K2, self.new_cam.K3, self.new_cam.K4, self.new_cam.K5, self.new_cam.P1, self.new_cam.P2, self.new_cam.P3, self.new_cam.P4, self.new_cam.P5, self.new_cam.P6, self.new_cam.P7]
         self.new_cam.proj_param = [self.new_cam.center, self.new_cam.rotation, self.new_cam.Foc, self.new_cam.distortion_center, self.new_cam.distortion_params]
         

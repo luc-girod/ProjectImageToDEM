@@ -7,15 +7,19 @@ Luc Girod, Simon Filhol, January 2021
 - [ ] test implementing weight on GCPs based on approximative distance from camera
 - [ ] we now have a two step least square. The ideal case would do all at once, but we need to handle the spread in order of magnitude of the different unknowns (in particular the distortion coefficients vs. the rest)
 - [ ] add option in projection to either correct distortion or assume the image is calibrated (current version)
-- [ ] go through class and function names for better clarity
-- [ ] Clean up script RunScript.py. 
+- [x] go through class and function names for better clarity
+- [x] Clean up script RunScript.py. 
 - [ ] update README examples after changes
+
 **Long term:**
 - [ ] add quality assessment based on spliting GCPs in two
 - [ ] add plotting functionalities for various steps of the processing
 - [ ] add method with OpenCV to extract camera parameter from Chessboard, See if can use calibration from Micmac
 - [ ] make a "perfect" test with a camera of known calibration distortion parameters and location. 
 - [ ] add method to project DEM in the image (all variable avail., simply needs proper plotting function)
+- [ ] implement function to classify image snow/no snow based on thresholding
+- [ ] add correction in elevation due to Earth curvature [Corripio (2004)](https://www.tandfonline.com/doi/pdf/10.1080/01431160410001709002?needAccess=true) page 12
+- [ ] implement snow/no-snow classification functions in `classification.py`
 
 ## 1. Description
 
@@ -23,8 +27,6 @@ Luc Girod, Simon Filhol, January 2021
 
 1. compute camera resection from a list of Ground Control Points (GCP) expressed in image coordinates (x,y) with their respective world coordinates (x,y,z). 
 2. Project the image on a DEM.
-
-## 
 
 ## 2. Installation
 ```sh

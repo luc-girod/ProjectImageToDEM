@@ -10,7 +10,7 @@ Created on Fri Jan 29 14:36:49 2021
 #
 
 from projimdem import resection as rs
-from projimdem import ProjectImageOnDEM as pi
+from projimdem import projection as pi
 import numpy as np
 
 cam_file = './example/FinseDemoData/CamFinseInit.json'
@@ -20,61 +20,64 @@ viewshed_file = './example/FinseDemoData/viewshed_mid.tif'
 image_file = './example/FinseDemoData/2019-05-24_12-00_ori_marked.jpg'
 output_file = './example/FinseDemoData/finse_proj_4m.tif'
 
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
                     free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
                     param_bounds=(
                         [-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000]))
 finse.estimate_cam(method='trf', loss='soft_l1')
 #finse.proj_GCPs2img()
 
-#finse.ChangeFreeParams(free_param=[ 'Foc','DCx', 'DCy', 'R1','R3', 'R5'],
-#                    param_bounds=([-1200,-50,-50,-10,-10,-10], [1500,50,50,10,10,10]))
+
 
 # trying an iterative appraoach...not sure if wights are any good
 for i in range(5):
-    finse.ChangeFreeParams(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'P1', 'P2','P3'],
+    finse.change_free_params(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'P1', 'P2','P3'],
                         param_bounds=([-50,-50,-1e-5,-1e-10,-1e-15,-1e-2,-1e-2,-1e-2], 
                                       [ 50, 50, 1e-5, 1e-10, 1e-15, 1e-2, 1e-2, 1e-2]))
     
     finse.estimate_cam('trf',xtol=1e-16, loss='soft_l1', ftol=1e-12)
     
-    finse.ChangeFreeParams(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
+    finse.change_free_params(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
                         param_bounds=([finse.new_cam.omega-0.1, finse.new_cam.phi-0.1, finse.new_cam.kappa-0.1,finse.new_cam.X_ini-2,finse.new_cam.Y_ini-2,finse.new_cam.Z_ini-2, finse.new_cam.Foc*0.95],
                                       [finse.new_cam.omega+0.1, finse.new_cam.phi+0.1, finse.new_cam.kappa+0.1,finse.new_cam.X_ini+2,finse.new_cam.Y_ini+2,finse.new_cam.Z_ini+2, finse.new_cam.Foc*1.05]))
     
     finse.estimate_cam('trf',xtol=1e-16, loss='soft_l1', ftol=1e-12)
 
 
-#%matplotlib
-#finse.proj_GCPs2img()
+%matplotlib
+finse.project_GCPs_to_img()
 
-from projimdem import ProjectImageOnDEM as pi
-finse_proj = pi.ProjIm2dem(dem_file=dem_file,
+from projimdem import projection as pi
+finse_proj = pi.Projection(dem_file=dem_file,
                           viewshed_file=viewshed_file,
                           image_file=image_file,
                           cam_param=finse.new_cam.proj_param,
                            output_file=output_file
                           )
-finse_proj.ProjectImage2DEM(return_raster=True, epsg=32632)
+finse_proj.project_img_to_DEM(return_raster=False, epsg=32632)
 
-from matplotlib import pyplot
-pyplot.figure()
-pyplot.imshow(finse_proj.image_undistort)
-pyplot.scatter(finse_proj.pt_proj.X_distort,finse_proj.pt_proj.Y_distort,alpha=0.5)
+kwargs={'alpha':.7,'cmap':pyplot.cm.terrain}
+finse_proj.plot_DEM_on_img(**kwargs)
 
 
 
+'''
 
 
-finse.ChangeFreeParams(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'K4','K5', 'P1', 'P2','P3','P4','P5','P6','P7'],
+
+
+
+
+
+finse.change_free_params(free_param=['DCx', 'DCy', 'K1', 'K2', 'K3', 'K4','K5', 'P1', 'P2','P3','P4','P5','P6','P7'],
                     param_bounds=([-50,-50,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1], [50,50,1,1,1,1,1,1,1,1,1,1,1,1]))
 
 
-finse.ChangeFreeParams(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc','DCx', 'DCy', 'K1', 'K2', 'K3', 'P1', 'P2','P3'],
+finse.change_free_params(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc','DCx', 'DCy', 'K1', 'K2', 'K3', 'P1', 'P2','P3'],
                     param_bounds=([finse.new_cam.omega-0.1, finse.new_cam.phi-0.1, finse.new_cam.kappa-0.1,finse.new_cam.X_ini-2,finse.new_cam.Y_ini-2,finse.new_cam.Z_ini-2, finse.new_cam.Foc*0.95, -50,-50,-1e-5,-1e-10,-1e-15,-1e-5,-1e-5,-1e-5],
                                   [finse.new_cam.omega+0.1, finse.new_cam.phi+0.1, finse.new_cam.kappa+0.1,finse.new_cam.X_ini+2,finse.new_cam.Y_ini+2,finse.new_cam.Z_ini+2, finse.new_cam.Foc*1.05, 50,50,1e-5,1e-10,1e-15,1e-5,1e-5,1e-5]))
 
-finse.ChangeFreeParams(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
+finse.change_free_params(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
                     param_bounds=([finse.new_cam.omega-0.1, finse.new_cam.phi-0.1, finse.new_cam.kappa-0.1,finse.new_cam.X_ini-2,finse.new_cam.Y_ini-2,finse.new_cam.Z_ini-2, finse.new_cam.Foc*0.95],
                                   [finse.new_cam.omega+0.1, finse.new_cam.phi+0.1, finse.new_cam.kappa+0.1,finse.new_cam.X_ini+2,finse.new_cam.Y_ini+2,finse.new_cam.Z_ini+2, finse.new_cam.Foc*1.05]))
 
@@ -92,50 +95,8 @@ finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
 #finse.GCPs
 finse.estimate_cam()
 finse.print_residuals()
-finse.proj_GCPs2img()
+finse.project_GCPs_to_img()
 
-
-# With Distortion
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,930,480,-0.00000001,-0.000000000000001,-0.0000000000000000000001], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,990,540,0.00000001,0.000000000000001,0.0000000000000000000001]))
-
-# With Distortion large numbers
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,-50,-50,-10,-10,-10], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,50,50,10,10,10]))
-
-# With Distortion mid numbers
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,930,480,-1,-1,-1], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,990,540,1,1,1]))
-
-# With Distortion mid numbers
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,-50,-50,-1], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,50,50,1]))
-
-# With Distortion mid numbers
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'R1'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000,-1000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000,1000]))
-
-
-# With Distortion Model 1
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
-                    param_bounds=(
-                        [-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,1000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,2000]))
-finse.estimate_cam(method='trf', loss='soft_l1')
-
-
-finse.ChangeFreeParams(free_param=['FOC', 'DCx', 'DCy', 'K1', 'K2', 'P1','P2','P3','P4'],
-                    param_bounds=([1000,-50,-50,-10,-10,-10,-10,-10,-10], [2000,50,50,10,10,10,10,10,10]))
-
-
-finse.estimate_cam(method='trf', loss='soft_l1')
-finse.print_residuals()
-finse.proj_GCPs2img()
 
 
 
@@ -150,16 +111,6 @@ output_file = './example/FinseFromPhoto4D/finse_proj_2m.tif'
 finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
                     free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc'],
                     param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,4000], [3.15,3.15,3.15,np.inf,np.inf,np.inf,6000]))
-
-# With Distortion
-cam_file = './example/FinseFromPhoto4D/CamFinseAfterNoDist.json'
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1', 'R3', 'R5'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,4000,2728-30,1816-30,-0.00000001,-0.000000000000001,-0.0000000000000000000001], [3.15,3.15,3.15,np.inf,np.inf,np.inf,6000,2728+30,1816+30,0.00000001,0.000000000000001,0.0000000000000000000001]))
-# With Distortion mid numbers
-finse = rs.resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'R1'],
-                    param_bounds=([-3.15, -3.15, -3.15,-np.inf,-np.inf,-np.inf,4000,2728-30,1816-30,-1], [3.15,3.15,3.15,np.inf,np.inf,np.inf,6000,2728+30,1816+30,1]))
 
 
 
