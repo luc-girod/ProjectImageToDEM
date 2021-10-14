@@ -41,7 +41,7 @@ def classify_blue_threshold(img_rgb, threshold, mask=None):
 #
 # reference: https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.threshold_multiotsu
 
-def classify_multiostu(img_rgb, nb_classes=2, mask=None):
+def classify_multiotsu(img_rgb, nb_classes=2, mask=None):
     thresholds = threshold_multiotsu(img_rgb, classes=nb_classes)
     regions = np.digitize(img_rgb, bins=thresholds)
     

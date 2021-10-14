@@ -29,6 +29,10 @@ import pandas as pd
 from types import SimpleNamespace
 from math import sin, cos
 
+# ignore pandas warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 class Resection():
     '''
     Class to compute resection parameter from camera parameters and GCPs 

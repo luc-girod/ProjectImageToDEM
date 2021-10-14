@@ -20,6 +20,7 @@ Luc Girod, Simon Filhol, January 2021
 - [ ] implement function to classify image snow/no snow based on thresholding
 - [ ] add correction in elevation due to Earth curvature [Corripio (2004)](https://www.tandfonline.com/doi/pdf/10.1080/01431160410001709002?needAccess=true) page 12
 - [ ] implement snow/no-snow classification functions in `classification.py`
+- [ ] add interpolation of the undistorted image for pixel with no value
 
 ## 1. Description
 

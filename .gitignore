@@ -5,3 +5,10 @@ FinseDemoData/time_lapse_finse_DSM.tif
 *.ipynb_c*
 *.aux.xml
 projimdem.egg-info/
+
+.idea/
+.idea/.gitignore
+.idea/ProjectImageToDEM.iml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/modules.xml
+.idea/vcs.xml
