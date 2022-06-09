@@ -5,10 +5,10 @@ Created on Tue Jan 19 16:27:46 2021
 @author: lucg
 """
 import numpy as np
-import gdal
+from osgeo import gdal
+from osgeo import osr
 from matplotlib import pyplot
 import time
-from osgeo import osr
 import os
 import pandas as pd
 
@@ -52,7 +52,7 @@ class Projection():
         ZDEMatCamera = self.dem_data[row][col]
         print("Z_DEM_at_Camera", ZDEMatCamera)
         print("Z_Camera", self.cam_param[0][2])
-        ZCameraOverDEM = self.cam_param[0][2] - ZDEMatCamera
+        ZCameraOverDEM = self.cam_param[0][2] - ZDEMatCamera + 10 # +10 so the viewshed is fuller rather than a bit underestimated
 
         # Compute viewshade file using GDAL and the new camear prosition
         if self.viewshed_file is not None:
@@ -121,26 +121,28 @@ class Projection():
         :return 
         """
         img = self.image
+        Foc = self.cam_param[2]
         [DCx, DCy] = self.cam_param[3]
-        [K1, K2, K3, K4, K5, P1, P2, P3, P4, P5, P6, P7] = self.cam_param[4]
+        [K1, K2, K3, K4, K5, K6, P1, P2, P3, P4, P5, P6, P7] = self.cam_param[4]
 
         Xs_dis, Ys_dis = np.meshgrid(np.arange(-img.shape[1] / 2, img.shape[1] / 2),
                                      np.arange(-img.shape[0] / 2, img.shape[0] / 2))
-        # Distortion model
-        R = np.sqrt(pow(Xs_dis - DCx, 2) + pow(Ys_dis - DCy, 2))
+        # Distortion model        
+        X_centered=(Xs_dis - DCx) / Foc
+        Y_centered=(Ys_dis - DCy) / Foc
+        R = np.sqrt(pow(X_centered, 2) + pow(Y_centered, 2))
 
-        x_im_nodist = Xs_dis + (Xs_dis - DCx) * (
-                    K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6) + K4 * pow(R, 8) + K5 * pow(R, 10)) + (
-                                  P1 * (pow(R, 2) + 2 * pow((Xs_dis - DCx), 2)) + 2 * P2 * (Xs_dis - DCx)) * (
-                                  Ys_dis - DCy) * (
-                                  1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R,
-                                                                                                                   10))
-        y_im_nodist = Ys_dis + (Ys_dis - DCy) * (
-                    K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6) + K4 * pow(R, 8) + K5 * pow(R, 10)) + (
-                                  P1 * (pow(R, 2) + 2 * pow((Ys_dis - DCy), 2)) + 2 * P2 * (Ys_dis - DCy)) * (
-                                  Xs_dis - DCx) * (
-                                  1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R,
-                                                                                                                   10))
+        x_im_nodist = DCx + Foc * X_centered * (
+                1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
+                1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
+                              P1 * (pow(R, 2) + 2 * pow(X_centered, 2)) + 2 * P2 * X_centered) * Y_centered * (
+                              1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
+                                  
+        y_im_nodist = DCy + Foc * Y_centered * (
+                1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
+                1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
+                              P1 * (pow(R, 2) + 2 * pow(Y_centered, 2)) + 2 * P2 * Y_centered) * X_centered * (
+                              1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
 
         if return_image:
 
@@ -251,21 +253,26 @@ def img_correct_distortion(img, cam_param):
 
     Xs_dis, Ys_dis = np.meshgrid(np.arange(-img.shape[1] / 2, img.shape[1] / 2),
                                  np.arange(-img.shape[0] / 2, img.shape[0] / 2))
+    
+    Foc=cam_param[2]
     [DCx, DCy] = cam_param[3]
-    R = np.sqrt(pow(Xs_dis - DCx, 2) + pow(Ys_dis - DCy, 2))
+    [K1, K2, K3, K4, K5, K6, P1, P2, P3, P4, P5, P6, P7] = cam_param[4]
+    
+    X_centered=(Xs_dis - DCx) / Foc
+    Y_centered=(Ys_dis - DCy) / Foc
+    R = np.sqrt(pow(X_centered, 2) + pow(Y_centered, 2))
 
-    [K1, K2, K3, K4, K5, P1, P2, P3, P4, P5, P6, P7] = cam_param[4]
-
-    x_im_nodist = Xs_dis + (Xs_dis - DCx) * (
-                K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6) + K4 * pow(R, 8) + K5 * pow(R, 10)) + (
-                              P1 * (pow(R, 2) + 2 * pow((Xs_dis - DCx), 2)) + 2 * P2 * (Xs_dis - DCx)) * (
-                              Ys_dis - DCy) * (
-                              1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
-    y_im_nodist = Ys_dis + (Ys_dis - DCy) * (
-                K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6) + K4 * pow(R, 8) + K5 * pow(R, 10)) + (
-                              P1 * (pow(R, 2) + 2 * pow((Ys_dis - DCy), 2)) + 2 * P2 * (Ys_dis - DCy)) * (
-                              Xs_dis - DCx) * (
-                              1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
+    x_im_nodist = DCx + Foc * X_centered * (
+            1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
+            1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
+                          P1 * (pow(R, 2) + 2 * pow(X_centered, 2)) + 2 * P2 * X_centered) * Y_centered * (
+                          1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
+                              
+    y_im_nodist = DCy + Foc * Y_centered * (
+            1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
+            1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
+                          P1 * (pow(R, 2) + 2 * pow(Y_centered, 2)) + 2 * P2 * Y_centered) * X_centered * (
+                          1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
 
     img_cor = np.empty([y_im_nodist.astype(int).max() - y_im_nodist.astype(int).min() + 1,
                         x_im_nodist.astype(int).max() - x_im_nodist.astype(int).min() + 1, 3])

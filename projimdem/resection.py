@@ -81,7 +81,7 @@ class Resection():
         # Build the x0 vector including the tunning parameter for the least square
         self.x0_dict = {}
         for param in free_param:
-            if param in ['omega', 'kappa', 'phi', 'X_ini', 'Y_ini', 'Z_ini']:
+            if param in ['omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini']:
                 p = self.cam.eop.__getattribute__(param)
                 self.x0_dict[param] = p
                 if param =='X_ini':
@@ -91,7 +91,7 @@ class Resection():
                 elif param =='Z_ini':
                     self.x0_dict[param] = p - self.z_offset
             #if param in ['Foc', 'DCx', 'DCy','R1', 'R3', 'R5']:
-            if param in ['Foc', 'DCx', 'DCy','K1', 'K2', 'K3', 'K4', 'K5', 'P1','P2','P3','P4', 'P5', 'P6', 'P7']:
+            if param in ['Foc', 'DCx', 'DCy','K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'P1','P2','P3','P4', 'P5', 'P6', 'P7']:
                 p = self.cam.iop.__getattribute__(param)
                 self.x0_dict[param] = p
         self.x0 = list(self.x0_dict.values())
@@ -141,6 +141,7 @@ class Resection():
         self.cam.iop.K3 = self.new_cam.K3
         self.cam.iop.K4 = self.new_cam.K4
         self.cam.iop.K5 = self.new_cam.K5
+        self.cam.iop.K6 = self.new_cam.K6
         self.cam.iop.P1 = self.new_cam.P1
         self.cam.iop.P2 = self.new_cam.P2
         self.cam.iop.P3 = self.new_cam.P3
@@ -247,6 +248,7 @@ class Resection():
         K3 = self.cam.iop.K3
         K4 = self.cam.iop.K4
         K5 = self.cam.iop.K5
+        K6 = self.cam.iop.K6
         P1 = self.cam.iop.P1
         P2 = self.cam.iop.P2
         P3 = self.cam.iop.P3
@@ -260,7 +262,7 @@ class Resection():
             omega = indep_vars[list(self.x0_dict.keys()).index('omega')]
         if 'phi' in self.x0_dict.keys():
             phi = indep_vars[list(self.x0_dict.keys()).index('phi')]
-        if 'omega' in self.x0_dict.keys():
+        if 'kappa' in self.x0_dict.keys():
             kappa = indep_vars[list(self.x0_dict.keys()).index('kappa')]
         if 'X_ini' in self.x0_dict.keys():
             XL = indep_vars[list(self.x0_dict.keys()).index('X_ini')]
@@ -284,6 +286,8 @@ class Resection():
             K4 = indep_vars[list(self.x0_dict.keys()).index('K4')]
         if 'K5' in self.x0_dict.keys():
             K5 = indep_vars[list(self.x0_dict.keys()).index('K5')]
+        if 'K6' in self.x0_dict.keys():
+            K6 = indep_vars[list(self.x0_dict.keys()).index('K6')]
         if 'P1' in self.x0_dict.keys():
             P1 = indep_vars[list(self.x0_dict.keys()).index('P1')]
         if 'P2' in self.x0_dict.keys():
@@ -312,31 +316,42 @@ class Resection():
             yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
             
             # Brown-Conrady distortion model
-            R=np.sqrt(pow(row.x_img-DCx,2)+pow(row.y_img-DCy,2))
+            X_centered=(row.x_img - DCx) / Foc
+            Y_centered=(row.y_img - DCy) / Foc
+            R = np.sqrt(pow(X_centered, 2) + pow(Y_centered, 2))
             
-            x_im_nodist = row.x_img + (row.x_img- DCx) * (K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((row.x_img - DCx),2)) + 2*P2*(row.x_img - DCx))*(row.y_img - DCy)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
-            y_im_nodist = row.y_img + (row.y_img- DCy)*(K1*pow(R,2) + K2*pow(R,4)+ K3*pow(R,6)+ K4*pow(R,8)+ K5*pow(R,10)) + (P1 * (pow(R,2) + 2*pow((row.y_img - DCy),2)) + 2*P2*(row.y_img - DCy))*(row.x_img - DCx)*(1+ P3 *pow(R,2) + P4*pow(R,4)+ P5 *pow(R,6) + P6*pow(R,8) + P7*pow(R,10))
+            x_im_nodist = DCx + Foc * X_centered * (
+                    1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
+                    1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
+                                  P1 * (pow(R, 2) + 2 * pow(X_centered, 2)) + 2 * P2 * X_centered) * Y_centered * (
+                                  1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
+                                      
+            y_im_nodist = DCy + Foc * Y_centered * (
+                    1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
+                    1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
+                                  P1 * (pow(R, 2) + 2 * pow(Y_centered, 2)) + 2 * P2 * Y_centered) * X_centered * (
+                                  1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
             
             resx = x_im_nodist - xproj_nodist
             resy = y_im_nodist - yproj_nodist
             F[2*i], F[2*i+1] = resx, resy
-
+            
         return F
     
     def project_GCPs_to_img(self, plot=True):
-        self.GCPs['x_img_repoj']=self.GCPs['x_img']-self.GCPs['residual_x_lstsq']+self.image.shape[1]/2
-        self.GCPs['y_img_repoj']=-(self.GCPs['y_img']-self.GCPs['residual_y_lstsq']-self.image.shape[0]/2)
+        self.GCPs['x_img_repoj']=self.GCPs['x_img']-self.GCPs['residual_x_lstsq']
+        self.GCPs['y_img_repoj']=-(self.GCPs['y_img']-self.GCPs['residual_y_lstsq']-self.image.shape[0])
         if plot:
             fig, ax = plt.subplots(1,1)
             ax.imshow(self.image)
-            ax.scatter(self.GCPs['x_img']+self.image.shape[1]/2,-(self.GCPs['y_img']-self.image.shape[0]/2), label='Original positions')
+            ax.scatter(self.GCPs['x_img'],-(self.GCPs['y_img']-self.image.shape[0]), label='Original positions')
             for i, txt in enumerate(self.GCPs['name']):
-                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i]+self.image.shape[1]/2,-(self.GCPs['y_img'][i]-self.image.shape[0]/2)),color='red')
+                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i],-(self.GCPs['y_img'][i]-self.image.shape[0])),color='blue', fontsize=8)
 
 
             ax.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')
             for i, txt in enumerate(self.GCPs['name']):
-                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]),color='red')
+                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img_repoj'][i],self.GCPs['y_img_repoj'][i]),color='orange', fontsize=8)
             ax.legend()                   
         
     
@@ -411,6 +426,10 @@ class Resection():
             self.new_cam.K5 = res.x[list(self.x0_dict.keys()).index('K5')]
         else:
             self.new_cam.K5 = self.cam.iop.K5
+        if 'K6' in self.x0_dict.keys():
+            self.new_cam.K6 = res.x[list(self.x0_dict.keys()).index('K6')]
+        else:
+            self.new_cam.K6 = self.cam.iop.K6
         if 'P1' in self.x0_dict.keys():
             self.new_cam.P1 = res.x[list(self.x0_dict.keys()).index('P1')]
         else:
@@ -444,7 +463,7 @@ class Resection():
         self.new_cam.center = [self.new_cam.X_ini + self.x_offset, self.new_cam.Y_ini + self.y_offset, self.new_cam.Z_ini + self.z_offset]
         self.new_cam.rotation = self.rot_matrix_from_angles(self.new_cam.omega, self.new_cam.phi, self.new_cam.kappa)
         self.new_cam.distortion_center = [self.new_cam.DCx, self.new_cam.DCy]
-        self.new_cam.distortion_params = [self.new_cam.K1, self.new_cam.K2, self.new_cam.K3, self.new_cam.K4, self.new_cam.K5, self.new_cam.P1, self.new_cam.P2, self.new_cam.P3, self.new_cam.P4, self.new_cam.P5, self.new_cam.P6, self.new_cam.P7]
+        self.new_cam.distortion_params = [self.new_cam.K1, self.new_cam.K2, self.new_cam.K3, self.new_cam.K4, self.new_cam.K5, self.new_cam.K6, self.new_cam.P1, self.new_cam.P2, self.new_cam.P3, self.new_cam.P4, self.new_cam.P5, self.new_cam.P6, self.new_cam.P7]
         self.new_cam.proj_param = [self.new_cam.center, self.new_cam.rotation, self.new_cam.Foc, self.new_cam.distortion_center, self.new_cam.distortion_params]
         
         idx = np.arange(0,res.fun.__len__(),2)
