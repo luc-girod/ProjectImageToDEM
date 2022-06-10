@@ -52,7 +52,7 @@ class Projection():
         ZDEMatCamera = self.dem_data[row][col]
         print("Z_DEM_at_Camera", ZDEMatCamera)
         print("Z_Camera", self.cam_param[0][2])
-        ZCameraOverDEM = self.cam_param[0][2] - ZDEMatCamera + 10 # +10 so the viewshed is fuller rather than a bit underestimated
+        ZCameraOverDEM = self.cam_param[0][2] - ZDEMatCamera + 50 # +50 so the viewshed is fuller rather than a bit underestimated
 
         # Compute viewshade file using GDAL and the new camear prosition
         if self.viewshed_file is not None:

@@ -62,17 +62,17 @@ class Resection():
         
         # define offesets if not provided
         if x_offset is None:
-            self.x_offset = self.GCPs.x_world.mean()
+            self.x_offset = self.cam.eop.X_ini
         else:
             self.x_offset = x_offset
             
         if y_offset is None:
-            self.y_offset = self.GCPs.y_world.mean()
+            self.y_offset = self.cam.eop.Y_ini
         else:
             self.y_offset = y_offset
         
         if z_offset is None:
-            self.z_offset = self.GCPs.z_world.mean()
+            self.z_offset = self.cam.eop.Z_ini
         else:
             self.z_offset = z_offset
         
@@ -85,11 +85,14 @@ class Resection():
                 p = self.cam.eop.__getattribute__(param)
                 self.x0_dict[param] = p
                 if param =='X_ini':
-                    self.x0_dict[param] = p - self.x_offset
+                    self.x0_dict[param] = 0#p - self.x_offset
+                    # self.x_offset=self.x0_dict[param]
                 elif param =='Y_ini':
-                    self.x0_dict[param] = p - self.y_offset
+                    self.x0_dict[param] = 0#p - self.y_offset
+                    # self.y_offset=self.x0_dict[param]
                 elif param =='Z_ini':
-                    self.x0_dict[param] = p - self.z_offset
+                    self.x0_dict[param] = 0#p - self.z_offset
+                    # self.z_offset=self.x0_dict[param]
             #if param in ['Foc', 'DCx', 'DCy','R1', 'R3', 'R5']:
             if param in ['Foc', 'DCx', 'DCy','K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'P1','P2','P3','P4', 'P5', 'P6', 'P7']:
                 p = self.cam.iop.__getattribute__(param)
@@ -133,8 +136,8 @@ class Resection():
         self.cam.eop.kappa = self.new_cam.kappa
         self.cam.eop.phi = self.new_cam.phi
         self.cam.iop.Foc = self.new_cam.Foc
-        self.cam.eop.Y_ini = self.new_cam.center[1]
         self.cam.eop.X_ini = self.new_cam.center[0]
+        self.cam.eop.Y_ini = self.new_cam.center[1]
         self.cam.eop.Z_ini = self.new_cam.center[2]
         self.cam.iop.K1 = self.new_cam.K1
         self.cam.iop.K2 = self.new_cam.K2
@@ -237,9 +240,9 @@ class Resection():
         omega = self.cam.eop.omega
         phi = self.cam.eop.phi
         kappa = self.cam.eop.kappa
-        XL = self.cam.eop.X_ini - self.x_offset
-        YL = self.cam.eop.Y_ini - self.y_offset
-        ZL = self.cam.eop.Z_ini - self.z_offset
+        X_ini = self.cam.eop.X_ini - self.x_offset
+        Y_ini = self.cam.eop.Y_ini - self.y_offset
+        Z_ini = self.cam.eop.Z_ini - self.z_offset
         Foc = self.cam.iop.Foc
         DCx = self.cam.iop.DCx
         DCy = self.cam.iop.DCy
@@ -265,11 +268,11 @@ class Resection():
         if 'kappa' in self.x0_dict.keys():
             kappa = indep_vars[list(self.x0_dict.keys()).index('kappa')]
         if 'X_ini' in self.x0_dict.keys():
-            XL = indep_vars[list(self.x0_dict.keys()).index('X_ini')]
+            X_ini = indep_vars[list(self.x0_dict.keys()).index('X_ini')]
         if 'Y_ini' in self.x0_dict.keys():
-            YL = indep_vars[list(self.x0_dict.keys()).index('Y_ini')]
+            Y_ini = indep_vars[list(self.x0_dict.keys()).index('Y_ini')]
         if 'Z_ini' in self.x0_dict.keys():
-            ZL = indep_vars[list(self.x0_dict.keys()).index('Z_ini')]
+            Z_ini = indep_vars[list(self.x0_dict.keys()).index('Z_ini')]
         if 'Foc' in self.x0_dict.keys():
             Foc = indep_vars[list(self.x0_dict.keys()).index('Foc')]
         if 'DCx' in self.x0_dict.keys():
@@ -311,7 +314,7 @@ class Resection():
         
         
         for i, row in tmp.iterrows():
-            uvw = M * np.matrix([[row.x_world_offset - XL], [row.y_world_offset - YL], [row.z_world_offset - ZL]])
+            uvw = M * np.matrix([[row.x_world_offset - X_ini], [row.y_world_offset - Y_ini], [row.z_world_offset - Z_ini]])
             xproj_nodist = -Foc * uvw[0,0] / uvw[2,0]
             yproj_nodist = -Foc * uvw[1,0] / uvw[2,0]
             
