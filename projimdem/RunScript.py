@@ -16,6 +16,7 @@ import numpy as np
 cam_file = './example/FinseFromPhoto4D/CamFinseInit.json'
 #cam_file = './example/FinseFromPhoto4D/CamFinseInit_OpenCVCalib.json'
 GCP_file = './example/FinseFromPhoto4D/GCPs.csv'
+#GCP_file = './example/FinseFromPhoto4D/GCPs_MicMac.csv'
 dem_file = './example/FinseFromPhoto4D/DEM_2m.tif'
 viewshed_file = './example/FinseFromPhoto4D/viewshed_test.tif'
 image_file = './example/FinseFromPhoto4D/DSC03111.JPG'
@@ -26,14 +27,14 @@ GCP_to_img_file= './example/FinseFromPhoto4D/GCPs_to_img_FreeCalibFK1K2K3.png'
 # First iteration with nothing free to create the object structure and limit the freedom of parameters
 finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
                     free_param=['Foc'],
-                    param_bounds=([2430],[2432])
+                    param_bounds=([4860],[4862])
                     )
 finse.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
 # Second iteration with some free parameters, freed with limits defined around initial values
 finse.change_free_params(free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'K1', 'K2', 'K3'],
                     param_bounds=(
-                        [finse.cam.eop.omega-0.2, finse.cam.eop.phi-0.2, finse.cam.eop.kappa-0.2, finse.cam.eop.X_ini-100-finse.x_offset,finse.cam.eop.Y_ini-100-finse.y_offset,finse.cam.eop.Z_ini-100-finse.z_offset,finse.cam.iop.Foc*0.9,-1e-2,-1e-5,-1e-8],
-                        [finse.cam.eop.omega+0.2, finse.cam.eop.phi+0.2, finse.cam.eop.kappa+0.2, finse.cam.eop.X_ini+100-finse.x_offset,finse.cam.eop.Y_ini+100-finse.y_offset,finse.cam.eop.Z_ini+100-finse.z_offset,finse.cam.iop.Foc*1.1, 1e-2, 1e-5, 1e-8]))
+                        [finse.cam.eop.omega-0.2, finse.cam.eop.phi-0.2, finse.cam.eop.kappa-0.2, finse.cam.eop.X_ini-100-finse.x_offset,finse.cam.eop.Y_ini-100-finse.y_offset,finse.cam.eop.Z_ini-100-finse.z_offset,finse.cam.iop.Foc*0.5,-1,-1,-1],
+                        [finse.cam.eop.omega+0.2, finse.cam.eop.phi+0.2, finse.cam.eop.kappa+0.2, finse.cam.eop.X_ini+100-finse.x_offset,finse.cam.eop.Y_ini+100-finse.y_offset,finse.cam.eop.Z_ini+100-finse.z_offset,finse.cam.iop.Foc*2, 1, 1, 1]))
 finse.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
 
 #matplotlib
@@ -54,7 +55,7 @@ output_file = './example/FinseFromPhoto4D/finse_proj_2m_Locked.tif'
 GCP_to_img_file= './example/FinseFromPhoto4D/GCPs_to_img_Locked.png'
 finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
                     free_param=['Foc'],
-                    param_bounds=([2430],[2432])
+                    param_bounds=([4860],[4862])
                     )
 finse.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
 
@@ -74,12 +75,16 @@ finse_proj.project_img_to_DEM(return_raster=True, epsg=32632)
 # Fully free
 
 finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=' ',
-                    free_param=['omega', 'phi', 'kappa','X_ini','Y_ini','Z_ini', 'Foc', 'K1', 'K2', 'K3'],
-                    param_bounds=([-6.30, -6.30, -6.30,-np.inf,-np.inf,-np.inf,4700,-1e-2,-1e-5,-1e-8],
-                                  [ 6.30,  6.30,  6.30, np.inf, np.inf, np.inf,5100, 1e-2, 1e-5, 1e-8])
+                    free_param=['omega', 'phi', 'kappa',  'K1', 'K2', 'K3'],
+                    param_bounds=([-6.30, -6.30, -6.30,-1,-1,-1],
+                                  [ 6.30,  6.30,  6.30,  1, 1, 1])
                     )
 
 finse.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
+#matplotlib
+finse.project_GCPs_to_img()
+from matplotlib import pyplot as plt
+plt.savefig(GCP_to_img_file, dpi=300)
 
 
 

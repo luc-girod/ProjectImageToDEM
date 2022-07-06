@@ -221,7 +221,7 @@ class Resection():
         RZ = np.array([[cos(kappa),-sin(kappa),0],
                  [sin(kappa), cos(kappa),0],
                  [0,0,1]])
-        M = RX.dot(RY.dot(RZ))#.dot(np.array([[1,0,0],[0,-1,0],[0,0,-1]]))
+        M = RX.dot(RY.dot(RZ)).dot(np.array([[1,0,0],[0,-1,0],[0,0,1]]))
         return M
     
     def collinearity_func(self, indep_vars):
@@ -323,13 +323,13 @@ class Resection():
             Y_centered=(row.y_img - DCy) / Foc
             R = np.sqrt(pow(X_centered, 2) + pow(Y_centered, 2))
             
-            x_im_nodist = DCx + Foc * X_centered * (
+            x_im_nodist = Foc * X_centered * (
                     1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
                     1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
                                   P1 * (pow(R, 2) + 2 * pow(X_centered, 2)) + 2 * P2 * X_centered) * Y_centered * (
                                   1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
                                       
-            y_im_nodist = DCy + Foc * Y_centered * (
+            y_im_nodist = Foc * Y_centered * (
                     1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
                     1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
                                   P1 * (pow(R, 2) + 2 * pow(Y_centered, 2)) + 2 * P2 * Y_centered) * X_centered * (
@@ -343,13 +343,13 @@ class Resection():
     
     def project_GCPs_to_img(self, plot=True):
         self.GCPs['x_img_repoj']=self.GCPs['x_img']-self.GCPs['residual_x_lstsq']
-        self.GCPs['y_img_repoj']=-(self.GCPs['y_img']-self.GCPs['residual_y_lstsq']-self.image.shape[0])
+        self.GCPs['y_img_repoj']=self.GCPs['y_img']-self.GCPs['residual_y_lstsq']
         if plot:
             fig, ax = plt.subplots(1,1)
             ax.imshow(self.image)
-            ax.scatter(self.GCPs['x_img'],-(self.GCPs['y_img']-self.image.shape[0]), label='Original positions')
+            ax.scatter(self.GCPs['x_img'],(self.GCPs['y_img']), label='Original positions')
             for i, txt in enumerate(self.GCPs['name']):
-                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i],-(self.GCPs['y_img'][i]-self.image.shape[0])),color='blue', fontsize=8)
+                ax.annotate(self.GCPs['name'][i], (self.GCPs['x_img'][i],(self.GCPs['y_img'][i])),color='blue', fontsize=8)
 
 
             ax.scatter(self.GCPs['x_img_repoj'],self.GCPs['y_img_repoj'], label='Reprojected positions')

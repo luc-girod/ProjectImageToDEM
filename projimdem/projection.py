@@ -65,13 +65,6 @@ class Projection():
             self.viewshed_raster = None
 
         self.image = pyplot.imread(image_file)
-        if len(self.image.shape) == 2:
-            # in case of  black and white image
-            self.image_T = self.image.T
-            self.image_T = np.stack((self.image_T, self.image_T, self.image_T), axis=2)
-        else:
-            # general RGB case
-            self.image_T = np.stack((self.image[:, :, 0].T, self.image[:, :, 1].T, self.image[:, :, 2].T), axis=2)
 
         # Create output object
         self.ortho = np.zeros((self.Ysize, self.Xsize, 3), dtype=np.uint8)
@@ -98,7 +91,7 @@ class Projection():
         pts_cam['X_proj'] = pts_cam.X_cam.values / pts_cam.Z_cam.values
         pts_cam['Y_proj'] = pts_cam.Y_cam.values / pts_cam.Z_cam.values
         pts_cam['X_img'] = imsize[1] / 2 - pts_cam['X_proj'] * self.cam_param[2]
-        pts_cam['Y_img'] = imsize[0] / 2 + pts_cam['Y_proj'] * self.cam_param[2]
+        pts_cam['Y_img'] = imsize[0] / 2 - pts_cam['Y_proj'] * self.cam_param[2]
 
         pts_cam.X_img.loc[(pts_cam.X_img < 0) | (pts_cam.X_img > imsize[1])] = np.nan
         pts_cam.Y_img.loc[(pts_cam.Y_img < 0) | (pts_cam.Y_img > imsize[0])] = np.nan
@@ -125,20 +118,20 @@ class Projection():
         [DCx, DCy] = self.cam_param[3]
         [K1, K2, K3, K4, K5, K6, P1, P2, P3, P4, P5, P6, P7] = self.cam_param[4]
 
-        Xs_dis, Ys_dis = np.meshgrid(np.arange(-img.shape[1] / 2, img.shape[1] / 2),
-                                     np.arange(-img.shape[0] / 2, img.shape[0] / 2))
+        Xs_dis, Ys_dis = np.meshgrid(np.arange(0, img.shape[1]),
+                                     np.arange(0, img.shape[0]))
         # Distortion model        
         X_centered=(Xs_dis - DCx) / Foc
         Y_centered=(Ys_dis - DCy) / Foc
         R = np.sqrt(pow(X_centered, 2) + pow(Y_centered, 2))
 
-        x_im_nodist = DCx + Foc * X_centered * (
+        x_im_nodist = Foc * X_centered * (
                 1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
                 1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
                               P1 * (pow(R, 2) + 2 * pow(X_centered, 2)) + 2 * P2 * X_centered) * Y_centered * (
                               1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
                                   
-        y_im_nodist = DCy + Foc * Y_centered * (
+        y_im_nodist = Foc * Y_centered * (
                 1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
                 1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
                               P1 * (pow(R, 2) + 2 * pow(Y_centered, 2)) + 2 * P2 * Y_centered) * X_centered * (
@@ -262,13 +255,13 @@ def img_correct_distortion(img, cam_param):
     Y_centered=(Ys_dis - DCy) / Foc
     R = np.sqrt(pow(X_centered, 2) + pow(Y_centered, 2))
 
-    x_im_nodist = DCx + Foc * X_centered * (
+    x_im_nodist = Foc * X_centered * (
             1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
             1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
                           P1 * (pow(R, 2) + 2 * pow(X_centered, 2)) + 2 * P2 * X_centered) * Y_centered * (
                           1 + P3 * pow(R, 2) + P4 * pow(R, 4) + P5 * pow(R, 6) + P6 * pow(R, 8) + P7 * pow(R, 10))
                               
-    y_im_nodist = DCy + Foc * Y_centered * (
+    y_im_nodist = Foc * Y_centered * (
             1 + K1 * pow(R, 2) + K2 * pow(R, 4) + K3 * pow(R, 6)) / (
             1 + K4 * pow(R, 2) + K5 * pow(R, 4) + K6 * pow(R, 6)) + (
                           P1 * (pow(R, 2) + 2 * pow(Y_centered, 2)) + 2 * P2 * Y_centered) * X_centered * (
