@@ -74,7 +74,7 @@ class Projection():
         self.pt_proj = pd.DataFrame()
 
     def XYZ_to_img(self, pts_world):
-        imsize = self.image.shape
+        imsize = self.image_undistort.shape
         pts_cam = pts_world.copy()
         Foc = self.cam_param[2]
         [DCx, DCy] = self.cam_param[3]
@@ -94,28 +94,15 @@ class Projection():
         # Projecting points to sensor (through a non distorting lens)
         pts_cam['X_proj'] = pts_cam.X_cam.values / pts_cam.Z_cam.values
         pts_cam['Y_proj'] = pts_cam.Y_cam.values / pts_cam.Z_cam.values
-        pts_cam['X_img'] = - pts_cam['X_proj'] * Foc + DCx
-        pts_cam['Y_img'] = - pts_cam['Y_proj'] * Foc + DCy
-		
+        
+        # convert from meter to pixel and align with undistorded image in image coordonates 
+        pts_cam['X_img'] = - pts_cam['X_proj'] * Foc - self.X_undistort.astype(int).min()
+        pts_cam['Y_img'] = - pts_cam['Y_proj'] * Foc - self.Y_undistort.astype(int).min()
+        
         # Removing points outside of the camera field of view. Here we should use the corrected image to do a mask instead.
-        pts_cam.X_img.loc[(pts_cam.X_img < 0-1000) | (pts_cam.X_img > imsize[1]+1000)] = np.nan
-        pts_cam.Y_img.loc[(pts_cam.Y_img < 0-1000) | (pts_cam.Y_img > imsize[0]+1000)] = np.nan
+        pts_cam.X_img.loc[(pts_cam.X_img < 0) | (pts_cam.X_img > imsize[1])] = np.nan
+        pts_cam.Y_img.loc[(pts_cam.Y_img < 0) | (pts_cam.Y_img > imsize[0])] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
-		
-        
-        # This whole part was doing crap!
-        # Then we have incompatibilities in the projection line 201/202 because it used to use X_distort. 
-        # TODO:
-        # 1. get the X_img, Y_img center the same as self.image_undistort
-        # 2. mask out X_img and Y_img either falling outside the shape of image_undistort, or falling onto the [0,0,0] values
-        # 3. use X_img.astype(int and Y_img.astype(int) line 201/202 instead of x_distort and y_distort
-        
-        #pts_cam['X_distort'] = self.X_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.X_undistort.astype(int).min()
-        #pts_cam['Y_distort'] = self.Y_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.Y_undistort.astype(int).min()
-
-        #pts_cam.X_distort.loc[(pts_cam.X_distort < 0) | (pts_cam.X_distort > self.image_undistort.shape[1])] = np.nan
-        #pts_cam.Y_distort.loc[(pts_cam.Y_distort < 0) | (pts_cam.Y_distort > self.image_undistort.shape[0])] = np.nan
-        #pts_cam = pts_cam.dropna(axis=0)
 
         return pts_cam
         
@@ -198,8 +185,8 @@ class Projection():
         # search for each DEM point in the viewshed its RGB value in the undistorted image to compute orthophoto
         for i, row in self.pt_proj.iterrows():
             self.ortho[row.ind_ydem.astype(int), row.ind_xdem.astype(int), :] = self.image_undistort[
-                                                                                row.Y_distort.astype(int),
-                                                                                row.X_distort.astype(int), :]
+                                                                                row.Y_img.astype(int),
+                                                                                row.X_img.astype(int), :]
 
         toc = time.perf_counter()
 

@@ -86,22 +86,22 @@ output_file = './example/FinseDemoData/FinseRoof_2019-05-24_12-00.tif'
                                   # [ 6.30,  6.30,  6.30, np.inf, np.inf, np.inf, 1550])
                     # )
 					
-GCP_to_img_file= './example/FinseDemoData/GCPs_to_img_FinseRoof_2019-05-24_12-00.png'
-finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    free_param=['omega', 'phi', 'kappa', 'X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
-                    param_bounds=([-6.30, -6.30, -6.30,  -np.inf,-np.inf,-np.inf,  1480,   900,  500,  -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100],
-                                  [ 6.30,  6.30,  6.30,   np.inf, np.inf, np.inf,  1490,  1100,  600,   100,  100,  100,  100,  100,  100,  100,  100,  100,  100,  100,  100])
-                    )
+#GCP_to_img_file= './example/FinseDemoData/GCPs_to_img_FinseRoof_2019-05-24_12-00.png'
+#finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+#                    free_param=['omega', 'phi', 'kappa', 'X_ini','Y_ini','Z_ini', 'Foc', 'DCx', 'DCy', 'K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
+#                    param_bounds=([-6.30, -6.30, -6.30,  -np.inf,-np.inf,-np.inf,  1480,   900,  500,  -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100],
+#                                  [ 6.30,  6.30,  6.30,   np.inf, np.inf, np.inf,  1490,  1100,  600,   100,  100,  100,  100,  100,  100,  100,  100,  100,  100,  100,  100])
+#                    )
 
 # GCP_to_img_file= './example/FinseDemoData/GCPs_to_img_FinseRoof_2019-05-24_12-00.png'
-# finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
-                    # free_param=['omega', 'phi', 'kappa', 'X_ini','Y_ini','Z_ini','DCx', 'DCy', 'K1', 'K2', 'K3'],
-                    # param_bounds=([-6.30, -6.30, -6.30,-np.inf,-np.inf,-np.inf, 900,  500,-20,-20,-20],
-                                  # [ 6.30,  6.30,  6.30, np.inf, np.inf, np.inf, 1100, 600, 20, 20,  20])
-                    # )
+finse = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=',',
+                    free_param=['omega', 'phi', 'kappa', 'X_ini','Y_ini','Z_ini', 'Foc','DCx', 'DCy', 'K1', 'K2', 'K3', 'P1', 'P2'],
+                    param_bounds=([-6.30, -6.30, -6.30,-np.inf,-np.inf,-np.inf, 1480,900,  500,-100,-100,-100, -100, -100],
+                                  [ 6.30,  6.30,  6.30, np.inf, np.inf, np.inf, 1490,1100, 600, 100, 100,  100,  100,  100])
+                    )
 
 
-finse.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
+finse.estimate_cam(method='trf', loss='soft_l1', ftol=1e-15)
 #matplotlib
 finse.project_GCPs_to_img()
 from matplotlib import pyplot as plt
@@ -125,8 +125,11 @@ plt.savefig('./example/FinseDemoData/distortK6P6.png', dpi=300)
 
 plt.figure(figsize=(10,10))
 
+[DCx, DCy] = finse_proj.cam_param[3]
+deltaX = finse_proj.X_undistort.min()
+deltaY = finse_proj.Y_undistort.min()
 plt.imshow(finse_proj.image_undistort)
-plt.scatter(finse_proj.pt_proj.X_img-920+1314, finse_proj.pt_proj.Y_img-530+742, c= finse_proj.pt_proj.Z_cam,alpha=0.05)
+plt.scatter(finse_proj.pt_proj.X_img - DCx - deltaX, finse_proj.pt_proj.Y_img - DCy - deltaY, c= finse_proj.pt_proj.Z_cam,alpha=0.05)
 plt.show()
 
 
