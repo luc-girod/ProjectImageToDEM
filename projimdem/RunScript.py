@@ -62,7 +62,7 @@ GCP_file = './example/FinseDemoData/GCPs_pointagev4.csv'
 dem_file = './example/FinseDemoData/time_lapse_finse_DSM_midfilled.tif'
 viewshed_file = './example/FinseDemoData/viewshed.tif'
 image_file = './example/FinseDemoData/2019-05-24_12-00_ori_marked.jpg'
-image_file = './example/FinseDemoData/2022-07-08.jpg'
+#image_file = './example/FinseDemoData/2022-07-08.jpg'
 output_file = './example/FinseDemoData/FinseRoof_2019-05-24_12-00.tif'
 
 # GCP_to_img_file= './example/FinseDemoData/GCPs_to_img_FinseRoof_2019-05-24_12-00_LOCKED.png'
@@ -119,15 +119,23 @@ finse_proj.project_img_to_DEM(return_raster=True, epsg=32632)
 
 plt.figure(figsize=(10,10))
 plt.imshow(finse_proj.image_undistort)
-plt.scatter(finse_proj.pt_proj.X_distort,finse_proj.pt_proj.Y_distort,alpha=0.05)
-plt.savefig('./example/FinseDemoData/distortK6P6.png', dpi=600)
+plt.scatter(finse_proj.pt_proj.X_distort[0:],finse_proj.pt_proj.Y_distort,alpha=0.05)
+plt.savefig('./example/FinseDemoData/distortK6P6.png', dpi=300)
+
+
+plt.figure(figsize=(10,10))
+
+plt.imshow(finse_proj.image_undistort)
+plt.scatter(finse_proj.pt_proj.X_img-920+1314, finse_proj.pt_proj.Y_img-530+742, c= finse_proj.pt_proj.Z_cam,alpha=0.05)
+plt.show()
+
 
 
 
 
 plt.figure(figsize=(10,10))
 plt.imshow(finse_proj.image_undistort)
-plt.scatter(finse_proj.pt_proj.X_undistort,finse_proj.pt_proj.Y_undistort,alpha=0.2)
+plt.scatter(finse_proj.X_undistort- finse_proj.X_undistort.astype(int).min(),finse_proj.Y_undistort- finse_proj.Y_undistort.astype(int).min(),alpha=0.2)
 plt.savefig('./example/FinseDemoData/undistort.png', dpi=600)
 
 
