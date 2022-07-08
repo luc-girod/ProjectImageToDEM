@@ -9,7 +9,7 @@ from osgeo import gdal
 from osgeo import osr
 from matplotlib import pyplot
 import time
-import os
+import os, pdb
 import pandas as pd
 
 # ignore pandas warnings
@@ -52,7 +52,7 @@ class Projection():
         ZDEMatCamera = self.dem_data[row][col]
         print("Z_DEM_at_Camera", ZDEMatCamera)
         print("Z_Camera", self.cam_param[0][2])
-        ZCameraOverDEM = self.cam_param[0][2] - ZDEMatCamera + 50 # +50 so the viewshed is fuller rather than a bit underestimated
+        ZCameraOverDEM = self.cam_param[0][2] - ZDEMatCamera + 20 # +20 so the viewshed is fuller rather than a bit underestimated
 
         # Compute viewshade file using GDAL and the new camear prosition
         if self.viewshed_file is not None:
@@ -76,7 +76,9 @@ class Projection():
     def XYZ_to_img(self, pts_world):
         imsize = self.image.shape
         pts_cam = pts_world.copy()
-
+        Foc = self.cam_param[2]
+        [DCx, DCy] = self.cam_param[3]
+		
         # World to camera coordinate
         XYZ_world = pts_cam[['X_world', 'Y_world', 'Z_world']].values
         pts_cam[['X_cam', 'Y_cam', 'Z_cam']] = pd.DataFrame(
@@ -84,22 +86,24 @@ class Projection():
 
         XYZ_world = None
 
-        # Removeing points behind the camera
+        # Removing points behind the camera
         pts_cam.Z_cam.loc[pts_cam.Z_cam > 0] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
-
+		
+        # Projecting points to sensor (through a non distorting lens)
         pts_cam['X_proj'] = pts_cam.X_cam.values / pts_cam.Z_cam.values
         pts_cam['Y_proj'] = pts_cam.Y_cam.values / pts_cam.Z_cam.values
-        pts_cam['X_img'] = imsize[1] / 2 - pts_cam['X_proj'] * self.cam_param[2]
-        pts_cam['Y_img'] = imsize[0] / 2 - pts_cam['Y_proj'] * self.cam_param[2]
-
+        pts_cam['X_img'] = - pts_cam['X_proj'] * Foc + DCx
+        pts_cam['Y_img'] = - pts_cam['Y_proj'] * Foc + DCy
+		
+        # Removing points outside of the camera field of view
         pts_cam.X_img.loc[(pts_cam.X_img < 0) | (pts_cam.X_img > imsize[1])] = np.nan
         pts_cam.Y_img.loc[(pts_cam.Y_img < 0) | (pts_cam.Y_img > imsize[0])] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
-        pts_cam['X_distort'] = self.X_undistort[
-                                   pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.X_undistort.min()
-        pts_cam['Y_distort'] = self.Y_undistort[
-                                   pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.Y_undistort.min()
+		
+        		
+        pts_cam['X_distort'] = self.X_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.X_undistort.astype(int).min()
+        pts_cam['Y_distort'] = self.Y_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.Y_undistort.astype(int).min()
 
         pts_cam.X_distort.loc[(pts_cam.X_distort < 0) | (pts_cam.X_distort > self.image_undistort.shape[1])] = np.nan
         pts_cam.Y_distort.loc[(pts_cam.Y_distort < 0) | (pts_cam.Y_distort > self.image_undistort.shape[0])] = np.nan
