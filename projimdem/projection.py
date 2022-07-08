@@ -78,6 +78,7 @@ class Projection():
         pts_cam = pts_world.copy()
         Foc = self.cam_param[2]
         [DCx, DCy] = self.cam_param[3]
+        print(DCx, DCy)
 		
         # World to camera coordinate
         XYZ_world = pts_cam[['X_world', 'Y_world', 'Z_world']].values
@@ -96,20 +97,28 @@ class Projection():
         pts_cam['X_img'] = - pts_cam['X_proj'] * Foc + DCx
         pts_cam['Y_img'] = - pts_cam['Y_proj'] * Foc + DCy
 		
-        # Removing points outside of the camera field of view
-        pts_cam.X_img.loc[(pts_cam.X_img < 0) | (pts_cam.X_img > imsize[1])] = np.nan
-        pts_cam.Y_img.loc[(pts_cam.Y_img < 0) | (pts_cam.Y_img > imsize[0])] = np.nan
+        # Removing points outside of the camera field of view. Here we should use the corrected image to do a mask instead.
+        pts_cam.X_img.loc[(pts_cam.X_img < 0-1000) | (pts_cam.X_img > imsize[1]+1000)] = np.nan
+        pts_cam.Y_img.loc[(pts_cam.Y_img < 0-1000) | (pts_cam.Y_img > imsize[0]+1000)] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
 		
-        		
-        pts_cam['X_distort'] = self.X_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.X_undistort.astype(int).min()
-        pts_cam['Y_distort'] = self.Y_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.Y_undistort.astype(int).min()
+        
+        # This whole part was doing crap!
+        # Then we have incompatibilities in the projection line 201/202 because it used to use X_distort. 
+        # TODO:
+        # 1. get the X_img, Y_img center the same as self.image_undistort
+        # 2. mask out X_img and Y_img either falling outside the shape of image_undistort, or falling onto the [0,0,0] values
+        # 3. use X_img.astype(int and Y_img.astype(int) line 201/202 instead of x_distort and y_distort
+        
+        #pts_cam['X_distort'] = self.X_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.X_undistort.astype(int).min()
+        #pts_cam['Y_distort'] = self.Y_undistort[pts_cam.Y_img.astype(int), pts_cam.X_img.astype(int)] - self.Y_undistort.astype(int).min()
 
-        pts_cam.X_distort.loc[(pts_cam.X_distort < 0) | (pts_cam.X_distort > self.image_undistort.shape[1])] = np.nan
-        pts_cam.Y_distort.loc[(pts_cam.Y_distort < 0) | (pts_cam.Y_distort > self.image_undistort.shape[0])] = np.nan
-        pts_cam = pts_cam.dropna(axis=0)
+        #pts_cam.X_distort.loc[(pts_cam.X_distort < 0) | (pts_cam.X_distort > self.image_undistort.shape[1])] = np.nan
+        #pts_cam.Y_distort.loc[(pts_cam.Y_distort < 0) | (pts_cam.Y_distort > self.image_undistort.shape[0])] = np.nan
+        #pts_cam = pts_cam.dropna(axis=0)
 
         return pts_cam
+        
 
     def img_correct_distortion(self, return_image=True):
         """
