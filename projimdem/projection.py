@@ -11,6 +11,7 @@ from matplotlib import pyplot
 import time
 import os, pdb
 import pandas as pd
+from scipy.interpolate import interp1d
 
 # ignore pandas warnings
 import warnings
@@ -78,7 +79,7 @@ class Projection():
         pts_cam = pts_world.copy()
         Foc = self.cam_param[2]
         [DCx, DCy] = self.cam_param[3]
-        print(DCx, DCy)
+        print("Nb points projected initially     : " + str(len(pts_world)))
 		
         # World to camera coordinate
         XYZ_world = pts_cam[['X_world', 'Y_world', 'Z_world']].values
@@ -90,6 +91,7 @@ class Projection():
         # Removing points behind the camera
         pts_cam.Z_cam.loc[pts_cam.Z_cam > 0] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
+        print("Nb points after behind cam filter : " + str(len(pts_cam)))
 		
         # Projecting points to sensor (through a non distorting lens)
         pts_cam['X_proj'] = pts_cam.X_cam.values / pts_cam.Z_cam.values
@@ -103,6 +105,7 @@ class Projection():
         pts_cam.X_img.loc[(pts_cam.X_img < 0) | (pts_cam.X_img > imsize[1])] = np.nan
         pts_cam.Y_img.loc[(pts_cam.Y_img < 0) | (pts_cam.Y_img > imsize[0])] = np.nan
         pts_cam = pts_cam.dropna(axis=0)
+        print("Nb points after out of cam filter : " + str(len(pts_cam)))
 
         return pts_cam
         
@@ -140,11 +143,25 @@ class Projection():
         if return_image:
 
             # Project distorted image
-            img_cor = np.empty([y_im_nodist.astype(int).max() - y_im_nodist.astype(int).min() + 1,
+            if(len(img.shape)==2):
+                img_cor = np.empty([y_im_nodist.astype(int).max() - y_im_nodist.astype(int).min() + 1,
+                                x_im_nodist.astype(int).max() - x_im_nodist.astype(int).min() + 1])
+                img_cor[(y_im_nodist.astype(int) - y_im_nodist.astype(int).min()),
+                (x_im_nodist.astype(int) - x_im_nodist.astype(int).min())] = img
+            else:
+                img_cor = np.empty([y_im_nodist.astype(int).max() - y_im_nodist.astype(int).min() + 1,
                                 x_im_nodist.astype(int).max() - x_im_nodist.astype(int).min() + 1, 3])
-            img_cor[(y_im_nodist.astype(int) - y_im_nodist.astype(int).min()),
-            (x_im_nodist.astype(int) - x_im_nodist.astype(int).min()), :] = img
+                img_cor[(y_im_nodist.astype(int) - y_im_nodist.astype(int).min()),
+                (x_im_nodist.astype(int) - x_im_nodist.astype(int).min()), :] = img
             img_cor = img_cor.astype(int)
+            
+            # Interpolate zero values
+            flat=img_cor.flatten()
+            x = np.arange(len(flat))
+            idx = np.nonzero(flat)
+            f = interp1d(x[idx],flat[idx],fill_value="extrapolate")
+            flat_filled = f(x)
+            img_cor=flat_filled.reshape(img_cor.shape).astype(int)
 
             img = None
             return x_im_nodist, y_im_nodist, img_cor
