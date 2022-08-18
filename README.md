@@ -9,18 +9,18 @@ Luc Girod, Simon Filhol, January 2021
 - [ ] add option in projection to either correct distortion or assume the image is calibrated (current version)
 - [x] go through class and function names for better clarity
 - [x] Clean up script RunScript.py. 
-- [ ] update README examples after changes
+- [x] update README examples after changes
 
 **Long term:**
 - [ ] add quality assessment based on spliting GCPs in two
-- [ ] add plotting functionalities for various steps of the processing
+- [x] add plotting functionalities for various steps of the processing
 - [ ] add method with OpenCV to extract camera parameter from Chessboard, See if can use calibration from Micmac
-- [ ] make a "perfect" test with a camera of known calibration distortion parameters and location. 
-- [ ] add method to project DEM in the image (all variable avail., simply needs proper plotting function)
+- [x] make a "perfect" test with a camera of known calibration distortion parameters and location. 
+- [x] add method to project DEM in the image (all variable avail., simply needs proper plotting function)
 - [ ] implement function to classify image snow/no snow based on thresholding
 - [ ] add correction in elevation due to Earth curvature [Corripio (2004)](https://www.tandfonline.com/doi/pdf/10.1080/01431160410001709002?needAccess=true) page 12
 - [ ] implement snow/no-snow classification functions in `classification.py`
-- [ ] add interpolation of the undistorted image for pixel with no value
+- [x] add interpolation of the undistorted image for pixel with no value
 
 ## 1. Description
 
@@ -77,7 +77,12 @@ Input needed for the resection are:
     }   
 }
 ```
-`eop` for external orientation parameters. `phi, omega, kappa` are the orientatino angle in radians. `iop` are the internal orientation parameter with `Foc` the focal length in pixels, `x0` and `y0` 
+`eop` for external orientation parameters. `phi, omega, kappa` are the orientatino angle in radians:
+- omega is the angle from looking straight up (pi/2=1.57 is the camera being level, the value should be in [0:pi])
+- phi the angle from the camera being level (pi/2=1.57 is the camera turned to portrait mode with the right side of the image pointing up)
+- kappa is the angle from looking straight north (pi/2=1.57 is pointing west, pi=3.14 is pointing south, -pi/2=-1.57 is pointing East)
+
+`iop` are the internal orientation parameter with `Foc` the focal length in pixels, `DCx` and `DCy` the pricipal point (distortion centers), and R1-5, K1-5 and P1-7 the supported distortion parameters. 
 
 2. save the GCPs image and world coordinates in a csv file as follow:
 ```csv. The image coordinate system has its origin in the center of the image. 
