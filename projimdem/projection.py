@@ -50,6 +50,8 @@ class Projection():
         # Compute DEM Z at Camera XY
         col = int((self.cam_param[0][0] - self.geot[0]) / self.geot[1])
         row = int((self.cam_param[0][1] - self.geot[3]) / self.geot[5])
+        if(col<0 or col>self.Xsize or row<0 or row>self.Ysize):
+            raise NameError("Location of camera outside of provided DEM!")
         ZDEMatCamera = self.dem_data[row][col]
         print("Z_DEM_at_Camera", ZDEMatCamera)
         print("Z_Camera", self.cam_param[0][2])
