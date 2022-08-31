@@ -97,10 +97,10 @@ import numpy as np
 
 cam_file       = './example/LC2_Bolternosa/CamLC2_Bolternosa.json'
 GCP_file       = './example/LC2_Bolternosa/LC2_Bolternosa_GCPs.csv'
-dem_file       = './example/LC2_Bolternosa/DEM_NP_2009_13835_UTM33N.tif'
+dem_file       = './example/LC2_Bolternosa/DEM_NP_2009_13835_UTM33N_2_5m.tif'
 viewshed_file  = './example/LC2_Bolternosa/viewshed.tif'
-image_file     = './example/LC2_Bolternosa/LC2_Bolternosa_RGB_2018-05-12_12.25_stabilized.jpg'
-output_file    = './example/LC2_Bolternosa/LC2_Bolternosa_5m.tif'
+image_file     = './example/LC2_Bolternosa/LC2_Bolternosa_RGB_2018-09-08_09.25_stabilized.jpg'
+output_file    = './example/LC2_Bolternosa/LC2_Bolternosa_2_5m.tif'
 GCP_to_img_file= './example/LC2_Bolternosa/GCPs_to_img.png'
                    
 Bolternosa = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=', ',
@@ -109,13 +109,13 @@ Bolternosa = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=', ',
                                   [ 6.30  ,  6.30,  6.30 ,   np.inf,  np.inf,  np.inf,  12000,    2950,   1900,  100,  100,  100,  100,  100])
                     )
 Bolternosa.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
-Bolternosa = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=', ',
-                    free_param=   ['omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini', 'Foc', 'K1', 'K2', 'K3'],
-                    param_bounds=([-6.30  , -6.30, -6.30 ,  -np.inf, -np.inf, -np.inf,  2000,  -100, -100, -100],
-                                  [ 6.30  ,  6.30,  6.30 ,   np.inf,  np.inf,  np.inf,  12000,  100,  100,  100])
-                    )
-Bolternosa.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
-
+#Bolternosa = rs.Resection(cam_file, GCP_file, image_file, delimiter_GCP=', ',
+#                    free_param=   ['omega', 'phi', 'kappa', 'X_ini', 'Y_ini', 'Z_ini', 'Foc', 'K1', 'K2', 'K3'],
+#                    param_bounds=([-6.30  , -6.30, -6.30 ,  -np.inf, -np.inf, -np.inf,  2000,  -100, -100, -100],
+#                                  [ 6.30  ,  6.30,  6.30 ,   np.inf,  np.inf,  np.inf,  12000,  100,  100,  100])
+#                    )
+#Bolternosa.estimate_cam(method='trf', loss='soft_l1', ftol=1e-12)
+#
 # Plot resection results
 Bolternosa.project_GCPs_to_img()
 from matplotlib import pyplot as plt
